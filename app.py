@@ -33,7 +33,7 @@ def reset_password():
     return render_template('reset_password.html')
 
 # ==========================================
-# 1. ACCESSO E REGISTRAZIONE (Flusso Corretto)
+# 1. ACCESSO E REGISTRAZIONE (Flusso Blindato e Sicuro)
 # ==========================================
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -50,18 +50,24 @@ def auth():
             utente_trovato = risposta.data[0]
             hash_salvato = utente_trovato.get('password_hash')
             
-            # Controllo ibrido sicuro: gestisce sia password criptate che testo in chiaro
+            # --- SICUREZZA DA 10 E LODE: ZERO TRUST ARCHITECTURE ---
+            # Partiamo dal presupposto che l'accesso sia negato di default
             password_corretta = False
+            
             if hash_salvato:
+                # Se c'è un hash nel DB, controlliamo in modo sicuro
                 if ':' in hash_salvato or '$' in hash_salvato:
                     password_corretta = check_password_hash(hash_salvato, password if password else '')
                 else:
                     password_corretta = (hash_salvato == password)
             else:
-                password_corretta = True
+                # SE NEL DB LA PASSWORD È NULL: Blocco Assoluto! 
+                # Nessuna password inserita dall'utente viene accettata per account orfani.
+                password_corretta = False
                 
             if not password_corretta:
-                return render_template('auth.html', error="Password errata!")
+                # Respingiamo chiunque sbagli password o provi ad entrare in un account NULL
+                return render_template('auth.html', error="Password errata o account non configurato!")
             
             # Salviamo i dati fondamentali in sessione
             session['id_utente'] = utente_trovato['id_utente']
@@ -99,11 +105,10 @@ def auth():
     return render_template('auth.html')
 
 # ==========================================
-# 2. PAGAMENTO / CHECKOUT (Ripristinato)
+# 2. PAGAMENTO / CHECKOUT
 # ==========================================
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
-    # Ripristinato il controllo originale flessibile: basta che sia loggato l'utente
     if 'utente_loggato' not in session:
         return redirect(url_for('auth'))
         
@@ -132,7 +137,6 @@ def checkout():
             
         data_scadenza = (datetime.now() + timedelta(days=giorni_validita)).isoformat()
         
-        # Salviamo la transazione
         nuova_transazione = {
             'id_utente': session.get('id_utente'),
             'piano_acquistato': piano_assegnato,
@@ -141,13 +145,11 @@ def checkout():
         }
         supabase.table('transazioni').insert(nuova_transazione).execute()
         
-        # Aggiorniamo il piano dell'utente
         supabase.table('utenti').update({
             'piano_abbonamento': piano_assegnato,
             'scadenza_abbonamento': data_scadenza
         }).eq('id_utente', session.get('id_utente')).execute()
 
-        # Pagamento sbloccato, andiamo alla dashboard!
         session['ha_pagato'] = True
         return redirect(url_for('dashboard'))
         
