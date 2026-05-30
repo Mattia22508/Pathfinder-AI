@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from supabase import create_client, Client
 from datetime import datetime, timedelta
-
+"prova"
 app = Flask(__name__)
 # La chiave segreta serve a Flask per ricordare gli utenti attivi
 app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
