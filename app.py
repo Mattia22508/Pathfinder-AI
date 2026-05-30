@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from supabase import create_client, Client
 from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 # La chiave segreta serve a Flask per ricordare gli utenti attivi
@@ -9,8 +10,9 @@ app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 # ==========================================
 # CONFIGURAZIONE DATABASE SUPABASE (Il Motore!)
 # ==========================================
-SUPABASE_URL = "https://veaqmkhmbdwjfcjqjtpyf.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8" # <-- INCOLLA LA TUA CHIAVE QUI!
+SUPABASE_URL = "https://veaqmkhmbdwjfcjqtpyf.supabase.co"
+# CHIAVE PULITA AL MILLIMETRO: rimosso il testo indicativo iniziale
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8"
 
 # Inizializziamo il client per parlare con il Database
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -39,13 +41,20 @@ def auth():
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
+        password = request.form.get('password')
         
         # 1. Controlliamo se l'utente esiste già nel database tramite l'email
         risposta = supabase.table('utenti').select('*').eq('email', email).execute()
         
         if len(risposta.data) > 0:
-            # L'UTENTE ESISTE! Lo facciamo accedere
+            # L'UTENTE ESISTE! Lo facciamo accedere controllando l'hash protetto
             utente_trovato = risposta.data[0]
+            hash_salvato = utente_trovato.get('password_hash')
+            
+            if hash_salvato and not check_password_hash(hash_saved=hash_salvato, password=password if password else ''):
+                if hash_salvato != password: # Retrocompatibilità temporanea per vecchi dati in chiaro
+                    return render_template('auth.html', error="Password errata!")
+            
             session['id_utente'] = utente_trovato['id_utente']
             session['utente_loggato'] = utente_trovato['nome_completo']
             
@@ -58,10 +67,13 @@ def auth():
                 return redirect(url_for('checkout'))
                 
         else:
-            # L'UTENTE È NUOVO! Lo registriamo nel database per la prima volta
+            # L'UTENTE È NUOVO! Lo registriamo nel database per la prima volta crittografando la password
+            password_criptata = generate_password_hash(password) if password else None
+            
             nuovo_utente = {
                 'nome_completo': username,
                 'email': email,
+                'password_hash': password_criptata,
                 'metodo_accesso': 'email',
                 'piano_abbonamento': 'gratuito'
             }
