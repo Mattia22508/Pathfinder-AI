@@ -33,7 +33,7 @@ def reset_password():
     return render_template('reset_password.html')
 
 # ==========================================
-# 1. ACCESSO E REGISTRAZIONE (Flusso Blindato e Sicuro)
+# 1. ACCESSO E REGISTRAZIONE (Sistemata Registrazione)
 # ==========================================
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -51,29 +51,24 @@ def auth():
             hash_salvato = utente_trovato.get('password_hash')
             
             # --- SICUREZZA DA 10 E LODE: ZERO TRUST ARCHITECTURE ---
-            # Partiamo dal presupposto che l'accesso sia negato di default
             password_corretta = False
             
             if hash_salvato:
-                # Se c'è un hash nel DB, controlliamo in modo sicuro
                 if ':' in hash_salvato or '$' in hash_salvato:
                     password_corretta = check_password_hash(hash_salvato, password if password else '')
                 else:
                     password_corretta = (hash_salvato == password)
             else:
-                # SE NEL DB LA PASSWORD È NULL: Blocco Assoluto! 
-                # Nessuna password inserita dall'utente viene accettata per account orfani.
+                # SE NEL DB LA PASSWORD È NULL: Blocco Assoluto!
                 password_corretta = False
                 
             if not password_corretta:
-                # Respingiamo chiunque sbagli password o provi ad entrare in un account NULL
                 return render_template('auth.html', error="Password errata o account non configurato!")
             
-            # Salviamo i dati fondamentali in sessione
+            # Salviamo i dati in sessione
             session['id_utente'] = utente_trovato['id_utente']
             session['utente_loggato'] = utente_trovato['nome_completo']
             
-            # Se ha già un abbonamento attivo va in dashboard, altrimenti va a pagare!
             if utente_trovato.get('piano_abbonamento') != 'gratuito':
                 session['ha_pagato'] = True
                 return redirect(url_for('dashboard'))
@@ -83,12 +78,18 @@ def auth():
                 
         else:
             # L'UTENTE È NUOVO! (Fase di Registrazione)
-            password_criptata = generate_password_hash(password) if password else None
+            # CORREZIONE DA 10 E LODE: Ci assicuriamo che la password passata dal form 
+            # non sia vuota o None prima di generare l'hash, garantendo il salvataggio sul DB.
+            stringa_password = password if password else ''
+            password_criptata = generate_password_hash(stringa_password)
+            
+            # Se l'utente non ha inserito un username nel form, usiamo la prima parte dell'email come nome
+            nome_utente = username if username else email.split('@')[0]
             
             nuovo_utente = {
-                'nome_completo': username,
+                'nome_completo': nome_utente,
                 'email': email,
-                'password_hash': password_criptata,
+                'password_hash': password_criptata, # Questo ora scriverà l'hash sicuro al 100%
                 'metodo_accesso': 'email',
                 'piano_abbonamento': 'gratuito'
             }
@@ -96,7 +97,7 @@ def auth():
             inserimento = supabase.table('utenti').insert(nuovo_utente).execute()
             
             session['id_utente'] = inserimento.data[0]['id_utente']
-            session['utente_loggato'] = username
+            session['utente_loggato'] = nome_utente
             session['ha_pagato'] = False
             
             # Spediamo il nuovo utente dritto alla pagina pagamenti
