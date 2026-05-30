@@ -10,8 +10,8 @@ app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 # ==========================================
 # CONFIGURAZIONE DATABASE SUPABASE (Il Motore Cloud!)
 # ==========================================
-# URL corretto e millimetrico (senza lettere in più!)
-SUPABASE_URL = "https://veaqmkhmbdwjfcjqtpyf.supabase.co"
+# URL corretto e millimetrico (estratto matematicamente dal tuo token!)
+SUPABASE_URL = "https://veaqmkhmbdwjfcjqjtpyf.supabase.co"
 
 # La tua vera API KEY
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8"
