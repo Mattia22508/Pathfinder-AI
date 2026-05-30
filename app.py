@@ -11,7 +11,6 @@ app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 # CONFIGURAZIONE DATABASE SUPABASE (Il Motore!)
 # ==========================================
 SUPABASE_URL = "https://veaqmkhmbdwjfcjqtpyf.supabase.co"
-# CHIAVE PULITA AL MILLIMETRO: rimosso il testo indicativo iniziale
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8"
 
 # Inizializziamo il client per parlare con il Database
@@ -51,7 +50,8 @@ def auth():
             utente_trovato = risposta.data[0]
             hash_salvato = utente_trovato.get('password_hash')
             
-            if hash_salvato and not check_password_hash(hash_saved=hash_salvato, password=password if password else ''):
+            # CORREZIONE 10 E LODE: passati i parametri posizionali corretti senza parole inventate
+            if hash_salvato and not check_password_hash(hash_salvato, password if password else ''):
                 if hash_salvato != password: # Retrocompatibilità temporanea per vecchi dati in chiaro
                     return render_template('auth.html', error="Password errata!")
             
@@ -90,7 +90,7 @@ def auth():
     return render_template('auth.html')
 
 # ==========================================
-# 2. CHECKOUT E LOGICA DEI CODICI PROMO (10 e Lode!)
+# 2. CHECKOUT E LOGICA DEI CODICI PROMO 
 # ==========================================
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
