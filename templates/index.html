@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathfinder AI | L'Evoluzione della Carriera</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <style>
+        .feedback-textarea {
+            padding: 15px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 5px;
+            color: white;
+            font-size: 1rem;
+            transition: 0.3s;
+            width: 100%;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 120px;
+        }
+        .feedback-textarea:focus {
+            outline: none;
+            border-color: var(--neon-accent);
+            box-shadow: 0 0 10px var(--neon-glow);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="/" class="logo">PATHFINDER<span>_AI</span></a>
+        <nav>
+            <a href="/manifesto">Il Manifesto</a>
+            <a href="/come-funziona">Come Funziona</a>
+            <a href="/auth">Accedi</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Basta corsi generici. Costruisci il tuo futuro con precisione chirurgica.</h1>
+        <p>Il mercato è saturo di promesse vuote. Pathfinder AI agisce come un personal trainer spietato per la tua carriera. Inserisci il tuo obiettivo, ottieni una roadmap settimanale esecutiva e gamificata.</p>
+        <a href="#piani" class="btn btn-primary" style="width: auto;">Scopri i Piani di Accesso</a>
+    </section>
+
+    <section id="piani" class="pricing-section">
+        <h2>Scegli il tuo livello operativo</h2>
+        <div class="pricing-grid">
+            
+            <div class="pricing-card">
+                <h3>Starter</h3>
+                <div class="price">€19<span> /mese</span></div>
+                <ul>
+                    <li>1 Skill Tree attiva</li>
+                    <li>Generazione Roadmap Mensile</li>
+                    <li>Supporto Email Standard</li>
+                </ul>
+                <a href="/auth" class="btn btn-primary" style="margin-top: auto; font-size: 0.9rem;">Seleziona Piano</a>
+            </div>
+
+            <div class="pricing-card premium">
+                <h3>Executive (Pro)</h3>
+                <div class="price">€49<span> /mese</span></div>
+                <ul>
+                    <li>Skill Tree Illimitate</li>
+                    <li>Ricalcolo Dinamico dell'IA</li>
+                    <li>Integrazione LinkedIn Diretta</li>
+                    <li>Priorità Alta Server</li>
+                </ul>
+                <a href="/auth" class="btn btn-primary" style="margin-top: auto; font-size: 0.9rem;">Seleziona Piano</a>
+            </div>
+
+            <div class="pricing-card">
+                <h3>Elite</h3>
+                <div class="price">€99<span> /mese</span></div>
+                <ul>
+                    <li>Tutto il piano Executive</li>
+                    <li>Mentorship Umana Dedicata (1h/mese)</li>
+                    <li>Accesso anticipato nuove API</li>
+                    <li>Supporto 24/7</li>
+                </ul>
+                <a href="/auth" class="btn btn-primary" style="margin-top: auto; font-size: 0.9rem;">Seleziona Piano</a>
+            </div>
+
+        </div>
+    </section>
+
+    <section id="feedback" style="padding: 40px 20px 100px 20px; text-align: center; max-width: 600px; margin: 0 auto;">
+        <h2 style="font-size: 2.5rem; color: var(--neon-accent); margin-bottom: 15px;">Inviaci il tuo Feedback!</h2>
+        <p style="color: var(--text-muted); margin-bottom: 30px;">Il sistema è in continua evoluzione. Invia un feedback, un'idea o segnala un'anomalia direttamente al server centrale.</p>
+        
+        <form class="auth-form" action="https://formsubmit.co/labarbera2223@giorgimi.edu.it" method="POST">
+            
+            <input type="hidden" name="_subject" value="Nuovo Feedback da Pathfinder AI!">
+            <input type="hidden" name="_template" value="table">
+            <input type="hidden" name="_next" value="http://127.0.0.1:5000/">
+            <input type="hidden" name="_captcha" value="false">
+
+            <input type="text" name="Nome" placeholder="Nome" required>
+            <input type="email" name="Email" placeholder="Email" required>
+            <textarea name="Messaggio" class="feedback-textarea" placeholder="Inserisci i parametri del feedback o la segnalazione..." required></textarea>
+            
+            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Invia Feedback</button>
+        </form>
+    </section>
+
+    <div id="promoModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 style="color: var(--neon-accent); margin-bottom: 15px;">Inizializzazione Sistema...</h2>
+            <p>Registrati ora per rimanere sintonizzato. Riceverai un pass di <strong>10 giorni di prova gratuita</strong> per sbloccare la tua prima Skill Tree.</p>
+            <br>
+            <a href="/auth" class="btn btn-primary">Ottieni il Pass</a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (!sessionStorage.getItem('popupPathfinderChiuso')) {
+                setTimeout(function() {
+                    document.getElementById('promoModal').style.display = 'flex';
+                }, 1000);
+            }
+        });
+
+        function closeModal() {
+            document.getElementById('promoModal').style.display = 'none';
+            sessionStorage.setItem('popupPathfinderChiuso', 'true');
+        }
+    </script>
+</body>
+</html>
