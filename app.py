@@ -10,7 +10,7 @@ app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 # CONFIGURAZIONE DATABASE SUPABASE (Il Motore!)
 # ==========================================
 SUPABASE_URL = "https://veaqmkhmbdwjfcjqjtpyf.supabase.co"
-SUPABASE_KEY = "INCOLLA_QUI_LA_TUA_CHIAVE_ANON_PUBLICeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8" # <-- INCOLLA LA TUA CHIAVE QUI!
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8" # <-- INCOLLA LA TUA CHIAVE QUI!
 
 # Inizializziamo il client per parlare con il Database
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
