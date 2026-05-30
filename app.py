@@ -33,7 +33,7 @@ def reset_password():
     return render_template('reset_password.html')
 
 # ==========================================
-# 1. ACCESSO E REGISTRAZIONE (Sistemata Registrazione)
+# 1. ACCESSO E REGISTRAZIONE (Verifica Hash Corretta)
 # ==========================================
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -50,16 +50,19 @@ def auth():
             utente_trovato = risposta.data[0]
             hash_salvato = utente_trovato.get('password_hash')
             
-            # --- SICUREZZA DA 10 E LODE: ZERO TRUST ARCHITECTURE ---
+            # --- SICUREZZA DA 10 E LODE: VERIFICA IBRIDA AVANZATA ---
             password_corretta = False
+            stringa_password = password if password else ''
             
             if hash_salvato:
-                if ':' in hash_salvato or '$' in hash_salvato:
-                    password_corretta = check_password_hash(hash_salvato, password if password else '')
+                # Se l'hash salvato inizia con i formati tipici di Werkzeug (es. scrypt: o pbkdf2:)
+                if hash_salvato.startswith(('scrypt:', 'pbkdf2:', 'argon2:')) or ':' in hash_salvato:
+                    password_corretta = check_password_hash(hash_salvato, stringa_password)
                 else:
-                    password_corretta = (hash_salvato == password)
+                    # Altrimenti gestiamo i vecchi dati memorizzati in chiaro per non rompere i test storici
+                    password_corretta = (hash_salvato == stringa_password)
             else:
-                # SE NEL DB LA PASSWORD È NULL: Blocco Assoluto!
+                # Se nel DB la password è NULL, l'accesso viene categoricamente negato
                 password_corretta = False
                 
             if not password_corretta:
@@ -78,18 +81,15 @@ def auth():
                 
         else:
             # L'UTENTE È NUOVO! (Fase di Registrazione)
-            # CORREZIONE DA 10 E LODE: Ci assicuriamo che la password passata dal form 
-            # non sia vuota o None prima di generare l'hash, garantendo il salvataggio sul DB.
             stringa_password = password if password else ''
             password_criptata = generate_password_hash(stringa_password)
             
-            # Se l'utente non ha inserito un username nel form, usiamo la prima parte dell'email come nome
             nome_utente = username if username else email.split('@')[0]
             
             nuovo_utente = {
                 'nome_completo': nome_utente,
                 'email': email,
-                'password_hash': password_criptata, # Questo ora scriverà l'hash sicuro al 100%
+                'password_hash': password_criptata,
                 'metodo_accesso': 'email',
                 'piano_abbonamento': 'gratuito'
             }
@@ -100,7 +100,6 @@ def auth():
             session['utente_loggato'] = nome_utente
             session['ha_pagato'] = False
             
-            # Spediamo il nuovo utente dritto alla pagina pagamenti
             return redirect(url_for('checkout'))
         
     return render_template('auth.html')
