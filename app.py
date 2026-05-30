@@ -10,8 +10,11 @@ app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 # ==========================================
 # CONFIGURAZIONE DATABASE SUPABASE (Il Motore Cloud!)
 # ==========================================
-SUPABASE_URL = "https://veaqmkhmbdwjfcjqjtpyf.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8"  
+# URL corretto e millimetrico (senza lettere in più!)
+SUPABASE_URL = "https://veaqmkhmbdwjfcjqtpyf.supabase.co"
+
+# La tua vera API KEY
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8"
 
 # Inizializziamo il client per parlare con il Database
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -55,7 +58,7 @@ def auth():
             
             # Controllo di sicurezza: verifichiamo se la password corrisponde all'hash criptato
             if hash_salvato and not check_password_hash(hash_salvato, password):
-                # Se la password è sbagliata, ricarica la pagina mostrando un errore (se gestito nel template)
+                # Se la password è sbagliata, ricarica la pagina mostrando un errore
                 return render_template('auth.html', error="Password errata!")
             
             # Se è corretta, salviamo i dati in sessione ed entra!
