@@ -22,9 +22,7 @@
         <p>Inserisci i tuoi dati per accedere alla piattaforma.</p>
         
         {% if error %}
-            <div style="color: #ff4d4d; border: 1px solid #ff4d4d; background: rgba(255,77,77,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; font-size: 0.9rem;">
-                ⚠️ {{ error }}
-            </div>
+        <p style="color: #ff5555; font-weight: bold; margin-bottom: 15px;">{{ error }}</p>
         {% endif %}
         
         <form class="auth-form" action="/auth" method="POST">
@@ -32,7 +30,7 @@
             <input type="email" name="email" placeholder="Email" required>
             
             <div class="password-wrapper">
-                <input type="password" name="password" id="passwordInput" placeholder="Password" required>
+                <input type="password" id="passwordInput" name="password" placeholder="Password" required>
                 <span class="toggle-password" id="togglePasswordBtn">👁️</span>
             </div>
             
@@ -42,10 +40,10 @@
             
             <div class="divider"><span>oppure</span></div>
             
-            <a href="/login/google" class="btn btn-google" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Logo Google" style="width: 20px; height: 20px;">
+            <button type="button" class="btn btn-google" onclick="window.location.href='/login/google'">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Logo Google">
                 Accedi con Google
-            </a>
+            </button>
         </form>
     </div>
 

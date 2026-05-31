@@ -6,456 +6,256 @@
     <title>Pathfinder AI | Engine</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        /* --- SUPPORTO EXTRA CSS PER CHAT DINAMICHE E POPUP PROFILO --- */
-        .history-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 12px;
-            border-radius: 8px;
-            margin-bottom: 5px;
-            transition: 0.2s;
-            cursor: pointer;
-            text-decoration: none;
-            color: var(--text-main);
-        }
-        .history-item:hover, .history-item.active {
-            background: rgba(255, 255, 255, 0.08);
-            border-left: 3px solid var(--neon-accent);
-        }
-        .chat-actions {
-            display: flex;
-            gap: 5px;
-            opacity: 0;
-            transition: 0.2s;
-        }
-        .history-item:hover .chat-actions {
-            opacity: 1;
-        }
-        .chat-actions i {
-            font-size: 1.1rem;
-            color: var(--text-muted);
-        }
-        .chat-actions i:hover {
-            color: var(--neon-accent);
-        }
-        .chat-actions i.delete-btn:hover {
-            color: #ff5555;
-        }
-        .chat-actions i.pinned-active {
-            color: var(--neon-accent);
-        }
-        
-        /* Messaggi allineati stile chat premium */
-        .message-bubble {
-            margin-bottom: 15px;
-            padding: 12px 16px;
-            border-radius: 12px;
-            max-width: 80%;
-            line-height: 1.5;
-        }
-        .message-bubble.user {
-            background: rgba(0, 255, 204, 0.1);
-            border: 1px solid rgba(0, 255, 204, 0.2);
-            align-self: flex-end;
-            margin-left: auto;
-        }
-        .message-bubble.model {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            align-self: flex-start;
-        }
-
-        /* Popup Profilo Stile Glassmorphism */
-        .profile-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(10px);
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-        .profile-card {
-            background: rgba(20, 20, 20, 0.95);
-            border: 1px solid rgba(0, 255, 204, 0.3);
-            border-radius: 16px;
-            padding: 30px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 0 30px rgba(0, 255, 204, 0.2);
-            text-align: left;
-        }
-        .profile-footer-btn {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 12px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            margin-top: auto;
-            border: 1px solid rgba(255,255,255,0.05);
-            transition: 0.3s;
-        }
-        .profile-footer-btn:hover {
-            border-color: var(--neon-accent);
-            background: rgba(0, 255, 204, 0.05);
-        }
-        .loading-indicator {
-            display: none;
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-        }
-    </style>
 </head>
 <body class="dashboard-body">
-
     <div class="ai-layout">
         
-        <aside class="ai-sidebar" style="display: flex; flex-direction: column; height: 100vh;">
+        <aside class="ai-sidebar">
             <div class="ai-sidebar-header">
                 <a href="/" class="logo" style="font-size: 1.2rem;">PATHFINDER<span>_AI</span></a>
             </div>
             
-            <button class="ai-new-chat-btn" onclick="creaNuovaChat()">
+            <button class="ai-new-chat-btn" id="newChatBtn">
                 <i class="material-icons">add</i> Nuova Chat
             </button>
             
-            <div class="ai-history" id="chatHistoryContainer" style="flex-grow: 1; overflow-y: auto; margin-top: 15px;">
-                <p class="history-title">Le tue Roadmap</p>
+            <div class="ai-history" id="chatHistoryContainer">
+                <p class="history-title">Le tue conversazioni</p>
                 </div>
-
-            <div class="profile-footer-btn" onclick="apriProfilo()">
-                <i class="material-icons" style="color: var(--neon-accent);">account_circle</i>
-                <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    <p style="font-size: 0.9rem; font-weight: bold; margin: 0;" id="sidebarUsername">{{ username }}</p>
-                    <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Piano: {{ piano }}</p>
-                </div>
+            
+            <div style="margin-top: auto; padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--text-muted);">
+                <p>Operatore: <b style="color: white;">{{ username }}</b></p>
+                <p>Licenza: <span style="color: var(--neon-accent); font-weight: bold;">{{ piano }}</span></p>
+                <a href="/logout" style="color: #ff5555; text-decoration: none; display: block; margin-top: 10px; font-weight: bold;">🚪 Disconnetti</a>
             </div>
         </aside>
 
         <main class="ai-main">
             
-            <div class="ai-chat-container" style="display: flex; flex-direction: column; height: 100%;">
-                
-                <div id="chatWindow" style="flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column;">
-                    <div class="ai-welcome-section" id="welcomeSection">
-                        <h2>Sistemi Operativi Pronti, <span id="welcomeUser">{{ username }}</span>.</h2>
-                        <p>Il motore AI è sincronizzato sul piano <strong>{{ piano }}</strong>.</p>
-                        
-                        <div class="ai-suggestions-grid">
-                            <div class="ai-card" onclick="iniettaSuggerimento('Generami una Skill Tree da zero per diventare Cloud Architect nel 2026.')">
-                                <p>Generami una Skill Tree da zero per diventare <b>Cloud Architect</b> nel 2026.</p>
-                                <i class="material-icons">architecture</i>
-                            </div>
-                            <div class="ai-card" onclick="iniettaSuggerimento('Fai il parsing del mio background per capire se sono pronto a diventare Tech Lead.')">
-                                <p>Fai il parsing del mio background per capire se sono pronto a diventare <b>Tech Lead</b>.</p>
-                                <i class="material-icons">connect_without_contact</i>
-                            </div>
-                        </div>
-                    </div>
-                    </div>
-
-                <div class="ai-input-section">
-                    <div class="ai-input-wrapper">
-                        <div class="loading-indicator" id="loadingIndicator">
-                            <i class="material-icons" style="font-size: 1rem; vertical-align: middle; animation: spin 1s linear infinite;">sync</i> 
-                            Pathfinder AI sta elaborando la traiettoria...
-                        </div>
-                        <div class="ai-input-box">
-                            <button class="attach-btn" title="Allega CV o File" onclick="alert('Integrazione Storage Attiva per la versione Finale (10 e Lode).')">
-                                <i class="material-icons">attach_file</i>
-                            </button>
-                            <input type="text" id="chatInput" placeholder="Chiedi a Pathfinder AI o pianifica una Roadmap..." onkeypress="if(event.key === 'Enter') inviaMessaggio()">
-                            <button class="send-btn" onclick="inviaMessaggio()">
-                                <i class="material-icons">arrow_upward</i>
-                            </button>
-                        </div>
-                        <p class="ai-disclaimer">Pathfinder AI è collegato ai modelli Google Gemini LLM. Ottimizzazione della carriera in corso.</p>
-                    </div>
+            <div class="ai-welcome-section" id="welcomeSection">
+                <div class="ai-welcome-header">
+                    <h1 class="gemini-text">Sincronizzazione Stabilita, {{ username }}</h1>
+                    <p>Inserisci i parametri operativi o seleziona un prompt pre-calcolato dall'algoritmo per avviare il calcolo della Roadmap.</p>
                 </div>
 
+                <div class="ai-suggestions">
+                    <div class="ai-card" onclick="avviaSuggerimento('Genera una Roadmap dettagliata per diventare Cloud Architect.')">
+                        <p>Genera una Roadmap dettagliata per diventare <b>Cloud Architect</b>.</p>
+                        <i class="material-icons">insights</i>
+                    </div>
+                    <div class="ai-card" onclick="avviaSuggerimento('Analizza le competenze chiave richieste per il ruolo di Tech Lead.')">
+                        <p>Analizza le competenze chiave richieste per il ruolo di <b>Tech Lead</b>.</p>
+                        <i class="material-icons">connect_without_contact</i>
+                    </div>
+                    <div class="ai-card" onclick="avviaSuggerimento('Pianifica i task esecutivi di questa settimana per imparare Docker.')">
+                        <p>Pianifica i task esecutivi di questa settimana per imparare <b>Docker</b>.</p>
+                        <i class="material-icons">rule</i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ai-chat-container" id="chatMessagesContainer" style="display: none; flex-grow: 1; overflow-y: auto; padding: 20px;">
+                </div>
+
+            <div class="ai-input-section">
+                <div class="ai-input-wrapper">
+                    <div class="ai-input-box">
+                        <button class="attach-btn" title="Allega CV o File">
+                            <i class="material-icons">attach_file</i>
+                        </button>
+                        <input type="text" id="chatInput" placeholder="Chiedi a Pathfinder AI o digita '/' per i comandi...">
+                        <button class="send-btn" id="sendBtn">
+                            <i class="material-icons">arrow_upward</i>
+                        </button>
+                    </div>
+                    <p class="ai-disclaimer">Pathfinder AI è un algoritmo di calcolo spietato, ma può commettere errori. Verifica sempre le informazioni prodotte.</p>
+                </div>
             </div>
 
         </main>
     </div>
 
-    <div class="profile-modal" id="profileModal">
-        <div class="profile-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 style="color: var(--neon-accent); font-size: 1.3rem; margin: 0;">Profilo Operativo</h3>
-                <i class="material-icons" style="cursor: pointer; color: var(--text-muted);" onclick="chiudiProfilo()">close</i>
-            </div>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">ACCOUNT EMAIL</label>
-                <p style="background: rgba(255,255,255,0.03); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); margin: 0; font-size: 0.95rem;">{{ email }}</p>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">CAMBIA NOME UTENTE</label>
-                <input type="text" id="profileUsernameInput" value="{{ username }}" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: white; font-size: 0.95rem;">
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px;">
-
-            <div style="background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.15); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0 0 5px 0; font-size: 0.85rem; color: var(--text-muted);">STATO ABBONAMENTO</p>
-                <p style="margin: 0 0 8px 0; font-size: 1.1rem; font-weight: bold; color: var(--neon-accent);">Piano {{ piano }} attivo</p>
-                <p style="margin: 0; font-size: 0.8rem; color: var(--text-main);">Scadenza automatica: <br><strong>{{ scadenza }}</strong></p>
-            </div>
-
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn" style="background: rgba(255,255,255,0.05); width: auto; padding: 10px 20px; font-size: 0.9rem;" onclick="chiudiProfilo()">Annulla</button>
-                <button class="btn btn-primary" style="width: auto; padding: 10px 20px; font-size: 0.9rem;" onclick="salvaProfilo()">Salva Modifiche</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         let currentChatId = null;
 
-        // Eseguiamo il caricamento iniziale delle chat appena la pagina si apre
-        document.addEventListener("DOMContentLoaded", function() {
-            caricaListaChat(true); // Carica la lista e seleziona in automatico la prima chat se esiste
+        // Mappatura Elementi DOM
+        const chatHistoryContainer = document.getElementById('chatHistoryContainer');
+        const welcomeSection = document.getElementById('welcomeSection');
+        const chatMessagesContainer = document.getElementById('chatMessagesContainer');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const newChatBtn = document.getElementById('newChatBtn');
+
+        // FUNZIONE 1: Carica i canali di chat dell'utente della sessione attuale
+        async function caricaListaChat() {
+            try {
+                const res = await fetch('/api/chats');
+                const chats = await res.json();
+                
+                chatHistoryContainer.innerHTML = '<p class="history-title">Le tue conversazioni</p>';
+                
+                chats.forEach(chat => {
+                    const item = document.createElement('a');
+                    item.href = '#';
+                    item.className = `history-item ${chat.id === currentChatId ? 'active' : ''}`;
+                    item.innerHTML = `<i class="material-icons" style="font-size: 1rem;">chat_bubble_outline</i> <span>${chat.titolo}</span>`;
+                    
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        apriConversazione(chat.id);
+                    });
+                    
+                    chatHistoryContainer.appendChild(item);
+                });
+            } catch (err) {
+                console.error("Errore sincro canali:", err);
+            }
+        }
+
+        // FUNZIONE 2: Apre una conversazione e scarica lo storico messaggi
+        async function apriConversazione(id_chat) {
+            currentChatId = id_chat;
+            welcomeSection.style.display = 'none';
+            chatMessagesContainer.style.display = 'flex';
+            chatMessagesContainer.style.flexDirection = 'column';
+            chatMessagesContainer.innerHTML = '<p style="color: var(--text-muted); text-align:center;">Caricamento memoria storica...</p>';
+            
+            caricaListaChat(); // Aggiorna classe active sulla sidebar
+
+            try {
+                const res = await fetch(`/api/chats/${id_chat}/messaggi`);
+                const messaggi = await res.json();
+                
+                chatMessagesContainer.innerHTML = '';
+                
+                if(messaggi.length === 0) {
+                    chatMessagesContainer.innerHTML = '<p style="color: var(--text-muted); text-align:center; margin-top:20px;">Canale sicuro stabilito. Inizia a digitare per parlare con l\'IA.</p>';
+                } else {
+                    messaggi.forEach(msg => {
+                        renderizzaMessaggio(msg.ruolo, msg.contenuto);
+                    });
+                    autoScroll();
+                }
+            } catch (err) {
+                chatMessagesContainer.innerHTML = '<p style="color: #ff5555; text-align:center;">Errore decifrazione database.</p>';
+            }
+        }
+
+        // FUNZIONE 3: Crea un nuovo slot di conversazione pulito
+        async function avviaNuovaChat() {
+            try {
+                const res = await fetch('/api/chats', { method: 'POST' });
+                const nuovaChat = await res.json();
+                apriConversazione(nuovaChat.id);
+            } catch (err) {
+                console.error("Impossibile generare nuova chat:", err);
+            }
+        }
+
+        // FUNZIONE 4: Invia il testo a Gemini e gestisce la risposta in tempo reale
+        async function elaboraInviaMessaggio() {
+            const messaggio = chatInput.value.trim();
+            if (!messaggio) return;
+
+            // Se l'utente scrive nella homepage senza aver aperto una chat, ne generiamo una al volo
+            if (!currentChatId) {
+                try {
+                    const res = await fetch('/api/chats', { method: 'POST' });
+                    const nuovaChat = await res.json();
+                    currentChatId = nuovaChat.id;
+                } catch (err) {
+                    return;
+                }
+            }
+
+            chatInput.value = ''; // Pulisce istantaneamente l'input per fluidità visiva
+
+            if (chatMessagesContainer.innerHTML.includes("Canale sicuro stabilito")) {
+                chatMessagesContainer.innerHTML = '';
+            }
+
+            // Inserisci messaggio utente sul display
+            renderizzaMessaggio('user', messaggio);
+            autoScroll();
+
+            // Generazione micro-interfaccia di caricamento dell'AI
+            const loadingId = 'load-' + Date.now();
+            const loadingPlaceholder = document.createElement('div');
+            loadingPlaceholder.id = loadingId;
+            loadingPlaceholder.style.margin = '10px 0';
+            loadingPlaceholder.style.alignSelf = 'flex-start';
+            loadingPlaceholder.style.color = 'var(--text-muted)';
+            loadingPlaceholder.style.fontStyle = 'italic';
+            loadingPlaceholder.innerHTML = 'Pathfinder AI sta elaborando la risposta...';
+            chatMessagesContainer.appendChild(loadingPlaceholder);
+            autoScroll();
+
+            try {
+                // Chiamata esecutiva AJAX verso il nostro backend Flask
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_chat: currentChatId, messaggio: messaggio })
+                });
+                const responseData = await res.json();
+                
+                document.getElementById(loadingId).remove(); // Elimina caricamento
+
+                // Stampa risposta finale reale di Gemini
+                renderizzaMessaggio('model', responseData.risposta);
+                autoScroll();
+                caricaListaChat(); // Ricarica lista per eventuale cambio titolo automatico
+            } catch (err) {
+                document.getElementById(loadingId).remove();
+                renderizzaMessaggio('model', "Errore critico di ricezione dati.");
+                autoScroll();
+            }
+        }
+
+        // Rendering grafico asincrono con stili vetrificati della chat
+        function renderizzaMessaggio(ruolo, contenuto) {
+            const box = document.createElement('div');
+            box.style.margin = '10px 0';
+            box.style.padding = '12px 16px';
+            box.style.borderRadius = '12px';
+            box.style.maxWidth = '75%';
+            box.style.lineHeight = '1.6';
+            box.style.wordBreak = 'break-word';
+
+            if (ruolo === 'user') {
+                box.style.alignSelf = 'flex-end';
+                box.style.background = 'rgba(0, 255, 204, 0.15)';
+                box.style.border = '1px solid rgba(0, 255, 204, 0.3)';
+                box.style.color = '#fff';
+            } else {
+                box.style.alignSelf = 'flex-start';
+                box.style.background = 'rgba(255, 255, 255, 0.05)';
+                box.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+                box.style.color = '#ededed';
+            }
+
+            box.innerHTML = contenuto.replace(/\n/g, '<br>');
+            chatMessagesContainer.appendChild(box);
+        }
+
+        function autoScroll() {
+            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+        }
+
+        function avviaSuggerimento(testo) {
+            chatInput.value = testo;
+            elaboraInviaMessaggio();
+        }
+
+        // Event Listener di Attivazione
+        sendBtn.addEventListener('click', elaboraInviaMessaggio);
+        newChatBtn.addEventListener('click', avviaNuovaChat);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') elaboraInviaMessaggio();
         });
 
-        // 1. CARICAMENTO DELLE CHAT NELLA SIDEBAR
-        function caricaListaChat(selezionaPrima = false) {
-            fetch('/api/chats')
-                .then(res => res.json())
-                .then(chats => {
-                    const container = document.getElementById('chatHistoryContainer');
-                    container.innerHTML = '<p class="history-title">Le tue Roadmap</p>';
-                    
-                    if(chats.length === 0) {
-                        container.innerHTML += '<p style="color:var(--text-muted); font-size:0.8rem; padding:10px;">Nessuna chat attiva. Creane una!</p>';
-                        return;
-                    }
-
-                    chats.forEach(chat => {
-                        const activeClass = chat.id === currentChatId ? 'active' : '';
-                        const pinIcon = chat.fissata ? 'push_pin' : 'fiber_manual_record';
-                        const pinClass = chat.fissata ? 'pinned-active' : '';
-                        
-                        const itemHtml = `
-                            <div class="history-item ${activeClass}" id="item-${chat.id}" onclick="selezionaChat('${chat.id}')">
-                                <div style="display:flex; align-items:center; gap:8px; overflow:hidden; width:70%;">
-                                    <i class="material-icons ${pinClass}" style="font-size: 1rem; min-width:16px;">${pinIcon}</i>
-                                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="title-span-${chat.id}">${chat.title || chat.titolo}</span>
-                                </div>
-                                <div class="chat-actions" onclick="event.stopPropagation();">
-                                    <i class="material-icons" title="Fissa/Sblocca" onclick="invertiFissaggio('${chat.id}', ${chat.fissata})">push_pin</i>
-                                    <i class="material-icons" title="Rinomina" onclick="rinominaChat('${chat.id}')">edit</i>
-                                    <i class="material-icons delete-btn" title="Elimina" onclick="eliminaChat('${chat.id}')">delete</i>
-                                </div>
-                            </div>
-                        `;
-                        container.innerHTML += itemHtml;
-                    });
-
-                    if(selezionaPrima && chats.length > 0) {
-                        selezionaChat(chats[0].id);
-                    }
-                });
-        }
-
-        // 2. CREAZIONE NUOVA CHAT VIA API
-        function creaNuovaChat() {
-            fetch('/api/chats', { method: 'POST' })
-                .then(res => res.json())
-                .then(nuovaChat => {
-                    currentChatId = nuovaChat.id;
-                    caricaListaChat();
-                    selezionaChat(nuovaChat.id);
-                });
-        }
-
-        // 3. SELEZIONE E VISUALIZZAZIONE MESSAGGI DI UNA CHAT
-        function selezionaChat(idChat) {
-            currentChatId = idChat;
-            
-            // Aggiorna la classe attiva visivamente sulla sidebar
-            document.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
-            const activeEl = document.getElementById(`item-${idChat}`);
-            if(activeEl) activeEl.classList.add('active');
-
-            // Nascondiamo il benvenuto iniziale
-            document.getElementById('welcomeSection').style.display = 'none';
-
-            // Recuperiamo i messaggi storici salvati su Supabase
-            fetch(`/api/chats/${idChat}/messaggi`)
-                .then(res => res.json())
-                .then(messaggi => {
-                    const chatWindow = document.getElementById('chatWindow');
-                    // Puliamo la finestra lasciando solo i messaggi effettivi
-                    chatWindow.innerHTML = '';
-                    
-                    if (messaggi.length === 0) {
-                        chatWindow.innerHTML = `<p style="text-align:center; color:var(--text-muted); margin-top:20px; font-size:0.9rem;">La linea temporale è vuota. Invia un messaggio per svegliare Pathfinder AI!</p>`;
-                    } else {
-                        messaggi.forEach(msg => {
-                            appendiBollaMessaggio(msg.ruolo, msg.contenuto);
-                        });
-                    }
-                    sccorriInBasso();
-                });
-        }
-
-        // 4. INVIO MESSAGGIO REALE A GEMINI AI
-        function inviaMessaggio() {
-            const input = document.getElementById('chatInput');
-            const testo = input.value.trim();
-            if(!testo) return;
-
-            // Se l'utente non ha selezionato nessuna chat, ne creiamo una al volo
-            if(!currentChatId) {
-                fetch('/api/chats', { method: 'POST' })
-                    .then(res => res.json())
-                    .then(nuovaChat => {
-                        currentChatId = nuovaChat.id;
-                        caricaListaChat();
-                        eseguiInvioMessaggio(testo);
-                    });
-            } else {
-                eseguiInvioMessaggio(testo);
-            }
-            input.value = '';
-        }
-
-        function eseguiInvioMessaggio(testo) {
-            // Rimuoviamo scritte placeholder interne se presenti
-            if(document.getElementById('chatWindow').innerText.includes("La linea temporale è vuota")) {
-                document.getElementById('chatWindow').innerHTML = '';
-            }
-
-            // Mostriamo immediatamente il messaggio dell'utente sullo schermo
-            appendiBollaMessaggio('user', testo);
-            sccorriInBasso();
-
-            // Attiviamo l'indicatore di caricamento dell'IA
-            document.getElementById('loadingIndicator').style.display = 'block';
-
-            // Inviamo la chiamata POST asincrona verso Flask
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_chat: currentChatId, messaggio: testo })
-            })
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                // Mostriamo la risposta reale di Gemini
-                appendiBollaMessaggio('model', data.risposta);
-                sccorriInBasso();
-            })
-            .catch(err => {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                appendiBollaMessaggio('model', "Errore di rete critico. Riprova.");
-            });
-        }
-
-        // Helper per iniettare testo dai suggerimenti
-        function iniettaSuggerimento(testo) {
-            document.getElementById('chatInput').value = testo;
-            inviaMessaggio();
-        }
-
-        // Helper visivo per le bolle della chat
-        function appendiBollaMessaggio(ruolo, contenuto) {
-            const chatWindow = document.getElementById('chatWindow');
-            const bubble = document.createElement('div');
-            bubble.className = `message-bubble ${ruolo}`;
-            bubble.innerText = contenuto;
-            chatWindow.appendChild(bubble);
-        }
-
-        function sccorriInBasso() {
-            const chatWindow = document.getElementById('chatWindow');
-            chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-
-        // 5. MODIFICA CHAT: FISSARE / RIMUOVERE PIN
-        function invertiFissaggio(idChat, statoAttuale) {
-            fetch(`/api/chats/${idChat}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fissata: !statoAttuale })
-            }).then(() => caricaListaChat());
-        }
-
-        // 6. MODIFICA CHAT: RINOMINARE TITOLO
-        function rinominaChat(idChat) {
-            const vecchioTitolo = document.getElementById(`title-span-${idChat}`).innerText;
-            const nuovoTitolo = prompt("Assegna un nuovo titolo operativo a questa Roadmap:", vecchioTitolo);
-            
-            if(nuovoTitolo && nuovoTitolo.trim() !== "") {
-                fetch(`/api/chats/${idChat}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ titolo: nuovoTitolo.trim() })
-                }).then(() => caricaListaChat());
-            }
-        }
-
-        // 7. ELIMINAZIONE COMPLETA CHAT
-        function eliminaChat(idChat) {
-            if(confirm("Sei sicuro di voler distruggere definitivamente questa linea temporale di chat?")) {
-                fetch(`/api/chats/${idChat}`, { method: 'DELETE' })
-                    .then(() => {
-                        if(currentChatId === idChat) {
-                            currentChatId = null;
-                            document.getElementById('chatWindow').innerHTML = '';
-                            document.getElementById('welcomeSection').style.display = 'block';
-                        }
-                        caricaListaChat();
-                    });
-            }
-        }
-
-        // ==========================================
-        // LOGICA DI APERTURA / SALVATAGGIO POPUP PROFILO
-        // ==========================================
-        function apriProfilo() {
-            document.getElementById('profileModal').style.display = 'flex';
-        }
-
-        function chiudiProfilo() {
-            document.getElementById('profileModal').style.display = 'none';
-        }
-
-        function salvaProfilo() {
-            const nuovoUser = document.getElementById('profileUsernameInput').value.trim();
-            if(nuovoUser.length < 3) {
-                alert("Il nome utente deve contenere almeno 3 caratteri.");
-                return;
-            }
-
-            fetch('/api/profilo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: nuovoUser })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    // Aggiorniamo i testi all'interno della pagina senza ricaricare (AJAX Puro)
-                    document.getElementById('sidebarUsername').innerText = data.nuovo_username;
-                    if(document.getElementById('welcomeUser')) {
-                        document.getElementById('welcomeUser').innerText = data.nuovo_username;
-                    }
-                    alert("Profilo operativo aggiornato con successo!");
-                    chiudiProfilo();
-                } else {
-                    alert("Errore durante l'aggiornamento.");
-                }
-            });
-        }
+        // Iniezione iniziale automatica
+        caricaListaChat();
     </script>
 </body>
 </html>
