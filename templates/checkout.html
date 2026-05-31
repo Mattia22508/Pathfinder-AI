@@ -37,39 +37,62 @@
             gap: 10px;
             margin-top: 5px;
         }
+        
+        /* --- INIZIO NUOVO DESIGN PREMIUM DEI PACCHETTI --- */
         .plan-selector {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             margin-bottom: 25px;
-            text-align: left;
         }
+        
         .plan-option {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            padding: 18px 20px;
+            border-radius: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s ease;
         }
+        
         .plan-option:hover {
-            border-color: rgba(0, 255, 204, 0.5);
+            border-color: rgba(0, 255, 204, 0.4);
+            background: rgba(255, 255, 255, 0.06);
         }
+        
+        /* Addio quadrato verde! Nascondiamo il pallino di default */
         .plan-option input[type="radio"] {
-            margin-right: 10px;
-            accent-color: var(--neon-accent);
+            display: none; 
         }
+
+        /* Magia CSS: Quando il pacchetto è selezionato, illuminiamo l'intera card! */
+        .plan-option:has(input[type="radio"]:checked) {
+            border-color: var(--neon-accent);
+            background: rgba(0, 255, 204, 0.08);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
+            transform: scale(1.02); /* Leggero effetto pop-up 3D */
+        }
+
         .plan-info {
             display: flex;
             align-items: center;
         }
+        
+        .plan-info span {
+            font-weight: 600;
+            font-size: 1.05rem;
+            letter-spacing: 0.5px;
+        }
+        
         .plan-price {
-            font-weight: bold;
+            font-weight: 900;
+            font-size: 1.2rem;
             color: var(--neon-accent);
         }
+        /* --- FINE NUOVO DESIGN PACCHETTI --- */
     </style>
 </head>
 <body>
@@ -111,7 +134,7 @@
             <div class="promo-container">
                 <label style="font-size: 0.9rem; color: var(--text-muted);">Hai un codice promozionale?</label>
                 <div class="promo-input-group">
-                    <input type="text" id="promoInput" name="promo_code" placeholder="Es. PROF100" style="margin-bottom: 0;">
+                    <input type="text" id="promoInput" name="promo_code" placeholder="Es. Codice_Promo" style="margin-bottom: 0;">
                     <button type="button" class="btn btn-primary" style="width: auto; padding: 0 20px; font-size: 0.9rem;" onclick="applicaCodice()">Applica</button>
                 </div>
                 <div id="promoSuccess" class="success-box" style="display: none; margin-top: 10px;"></div>
@@ -122,7 +145,7 @@
             <div id="paypal-button-container"></div>
 
             <button type="submit" id="submitBtnFree" class="btn btn-primary" style="display: none; width: 100%;">
-                Attiva Abbonamento Gratuito 🚀
+                Attiva Abbonamento Gratuito 
             </button>
 
         </form>
@@ -156,7 +179,7 @@
             if (codice === 'PROF100' || codice === 'TRIAL10') {
                 isPromoActive = true;
                 successBox.style.display = 'block';
-                successBox.innerText = `⚠️ CODICE APPLICATO: Sconto 100% Attivo!`;
+                successBox.innerText = "CODICE APPLICATO: INGRESSO VIP Attivo!";
                 
                 // Nasconde il pagamento PayPal e mostra il bottone di invio diretto gratuito
                 paypalContainer.style.display = 'none';
