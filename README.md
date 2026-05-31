@@ -70,6 +70,6 @@ L'applicazione sarà disponibile localmente all'indirizzo: http://127.0.0.1:5000
 Sito Pubblicato (Live Demo)
 L'applicazione è interamente online, configurata e accessibile in produzione.
 
-🔗 CLICCA QUI PER VISITARE PATHFINDER AI LIVE
+🔗 pathfinder-ai-omega.vercel.app
 
 (Nota per il Prof: Inserire il codice promozionale PROF100 durante la schermata di checkout simulata per ottenere l'accesso VIP gratuito ed illimitato)
