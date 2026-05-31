@@ -82,26 +82,26 @@ def reset_with_token(token):
         return render_template('reset_password.html', step='error', error="Il link di ripristino è scaduto o non è valido.")
         
     if request.method == 'POST':
-        # CORREZIONE 1: Prendiamo 'password' (il name dell'input HTML), non la colonna del DB!
+        # 1. Prendiamo i dati dall'HTML (i 'name' degli input)
         nuova_password = request.form.get('password')
         conferma_password = request.form.get('confirm_password')
         
-        # Se Flask non trova il campo 'password', proviamo con 'nuova_password' per sicurezza
+        # Fallback nel caso l'input si chiami 'nuova_password'
         if not nuova_password:
             nuova_password = request.form.get('nuova_password')
         
         if not nuova_password or nuova_password != conferma_password:
             return render_template('reset_password.html', step='change', token=token, error="Le password inserite non coincidono.")
         
-        # Criptiamo la password reale inserita dall'utente
+        # 2. Criptiamo la password
         password_criptata = generate_password_hash(nuova_password)
         
-        # CORREZIONE 2: Pulizia del dizionario per aggiornare entrambe le colonne potenziali nel DB
+        # 3. IL FIX: Passiamo a Supabase SOLO la colonna che esiste realmente nel DB!
         update_data = {
-            'password': password_criptata,
             'password_hash': password_criptata
         }
         
+        # 4. Eseguiamo l'aggiornamento
         supabase.table('utenti').update(update_data).eq('email', email).execute()
         
         return render_template('reset_password.html', step='success')
