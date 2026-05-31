@@ -41,7 +41,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ==========================================
 GEMINI_API_KEY = "AQ.Ab8RN6LUltJ203iA7tgKXFm9MxvA6gry-eB0CeB1fajF4I6hbQ"  # <-- Ricordati di inserire qui la tua API Key di Gemini!
 genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel('gemini-1.5-pro')
+gemini_model = genai.GenerativeModel('gemini-pro')
 
 
 @app.route('/')
