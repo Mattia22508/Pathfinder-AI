@@ -425,7 +425,7 @@ def invia_messaggio():
     try:
         # Chiamata corretta al nuovo SDK di Gemini
         response = ai_client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-3.5-flash',
             contents=contents_list,
             config=config_ia
         )
