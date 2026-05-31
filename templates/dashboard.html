@@ -6,7 +6,15 @@
     <title>Pathfinder AI | Engine</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        /* CSS per rendere bellissimi i testi formattati (grassetto, liste, titoli) */
+        .message-bubble p { margin: 0 0 10px 0; }
+        .message-bubble p:last-child { margin: 0; }
+        .message-bubble ul, .message-bubble ol { margin: 5px 0 10px 20px; padding: 0; }
+        .message-bubble h1, .message-bubble h2, .message-bubble h3, .message-bubble h4 { margin: 15px 0 10px 0; color: var(--neon-accent); }
+        .message-bubble strong { color: #ffffff; font-weight: 700; }
+
         /* --- SUPPORTO EXTRA CSS PER CHAT DINAMICHE E POPUP PROFILO --- */
         .history-item {
             display: flex;
@@ -185,8 +193,7 @@
                                 <i class="material-icons">arrow_upward</i>
                             </button>
                         </div>
-                        <p class="ai-disclaimer">Pathfinder AI è collegato ai modelli Google Gemini LLM. Ottimizzazione della carriera in corso.</p>
-                    </div>
+                        </div>
                 </div>
 
             </div>
@@ -378,6 +385,8 @@
             if (fileSelezionato) {
                 formData.append('file', fileSelezionato);
             }
+            
+            rimuoviFile(); // Resettiamo la graffetta dopo l'invio
 
             // Inviamo a Flask
             fetch('/api/chat', {
@@ -387,7 +396,6 @@
             .then(res => res.json())
             .then(data => {
                 document.getElementById('loadingIndicator').style.display = 'none';
-                rimuoviFile(); // Resettiamo la graffetta dopo l'invio
                 appendiBollaMessaggio('model', data.risposta);
                 sccorriInBasso();
             })
@@ -403,12 +411,13 @@
             inviaMessaggio();
         }
 
-        // Helper visivo per le bolle della chat
+        // Helper visivo per le bolle della chat (ORA CON SUPPORTO MARKDOWN!)
         function appendiBollaMessaggio(ruolo, contenuto) {
             const chatWindow = document.getElementById('chatWindow');
             const bubble = document.createElement('div');
             bubble.className = `message-bubble ${ruolo}`;
-            bubble.innerText = contenuto;
+            // Sostituiamo innerText con innerHTML e usiamo marked.parse per creare il grassetto
+            bubble.innerHTML = marked.parse(contenuto);
             chatWindow.appendChild(bubble);
         }
 
