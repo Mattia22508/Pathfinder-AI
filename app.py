@@ -41,7 +41,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ==========================================
 GEMINI_API_KEY = "AQ.Ab8RN6LUltJ203iA7tgKXFm9MxvA6gry-eB0CeB1fajF4I6hbQ"  # <-- Ricordati di inserire qui la tua API Key di Gemini!
 genai.configure(api_key=GEMINI_API_KEY)
-# Utilizziamo gemini-1.5-flash: ultra-veloce, economico e perfetto per assistenti virtuali
 gemini_model = genai.GenerativeModel('gemini-1.5-flash')
 
 
@@ -91,9 +90,7 @@ def reset_with_token(token):
         
         password_criptata = generate_password_hash(nuova_password)
         
-        # Gestione ibrida del DB
         update_data = {}
-        # Tentiamo di aggiornare 'password' o 'password_hash' a seconda di cosa usi come colonna
         update_data['password'] = password_criptata
         update_data['password_hash'] = password_criptata
         
@@ -105,7 +102,7 @@ def reset_with_token(token):
 
 
 # ==========================================
-# ACCESSO TRAMITE GOOGLE (SSO) DA 10 E LODE
+# ACCESSO TRAMITE GOOGLE (SSO)
 # ==========================================
 @app.route('/login/google')
 def login_google():
@@ -128,7 +125,6 @@ def authorize_google():
     if len(risposta.data) > 0:
         utente_trovato = risposta.data[0]
         session['id_utente'] = utente_trovato.get('id_utente')
-        # Prendiamo l'username o il nome completo come fallback
         session['utente_loggato'] = utente_trovato.get('username', utente_trovato.get('nome_completo'))
         
         piano = utente_trovato.get('piano_abbonamento')
@@ -139,9 +135,8 @@ def authorize_google():
             session['ha_pagato'] = False
             return redirect(url_for('checkout'))
     else:
-        id_nuovo_utente = str(uuid.uuid4())
+        # L'ID lo genera Supabase in automatico
         nuovo_utente = {
-            'id_utente': id_nuovo_utente,
             'username': nome_completo,
             'nome_completo': nome_completo,
             'email': email,
@@ -151,9 +146,9 @@ def authorize_google():
             'piano_abbonamento': 'Nessuno'
         }
         
-        supabase.table('utenti').insert(nuovo_utente).execute()
+        inserimento = supabase.table('utenti').insert(nuovo_utente).execute()
         
-        session['id_utente'] = id_nuovo_utente
+        session['id_utente'] = inserimento.data[0]['id_utente']
         session['utente_loggato'] = nome_completo
         session['ha_pagato'] = False
         
@@ -161,7 +156,7 @@ def authorize_google():
 
 
 # ==========================================
-# 1. AUTENTICAZIONE (ACCEDI / REGISTRATI) STANDARD
+# AUTENTICAZIONE STANDARD
 # ==========================================
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -174,8 +169,6 @@ def auth():
         
         if risultato.data:
             utente = risultato.data[0]
-            
-            # Supporto per doppia colonna (password o password_hash)
             hash_salvato = utente.get('password', utente.get('password_hash'))
             
             if utente.get('metodo_accesso') == 'google' and hash_salvato == 'GOOGLE_SSO_NO_PASSWORD':
@@ -206,12 +199,10 @@ def auth():
             else:
                 return render_template('auth.html', error="Password errata! Riprova.")
         else:
-            id_nuovo_utente = str(uuid.uuid4())
             password_criptata = generate_password_hash(password)
             nome_utente = username if username else email.split('@')[0]
             
             nuovo_record = {
-                'id_utente': id_nuovo_utente,
                 'username': nome_utente,
                 'nome_completo': nome_utente,
                 'email': email,
@@ -222,10 +213,10 @@ def auth():
                 'scadenza_abbonamento': None
             }
             
-            supabase.table('utenti').insert(nuovo_record).execute()
+            inserimento = supabase.table('utenti').insert(nuovo_record).execute()
             
             session['utente_loggato'] = nome_utente
-            session['id_utente'] = id_nuovo_utente
+            session['id_utente'] = inserimento.data[0]['id_utente']
             session['ha_pagato'] = False
             
             return redirect(url_for('checkout'))
@@ -234,7 +225,7 @@ def auth():
 
 
 # ==========================================
-# 2. SISTEMA DI PAGAMENTO (CHECKOUT) E PAYPAL
+# SISTEMA DI PAGAMENTO (CHECKOUT) E PAYPAL
 # ==========================================
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
@@ -292,7 +283,7 @@ def checkout():
 
 
 # ==========================================
-# 3. AREA RISERVATA / DASHBOARD
+# AREA RISERVATA / DASHBOARD
 # ==========================================
 @app.route('/dashboard')
 def dashboard():
@@ -302,20 +293,17 @@ def dashboard():
     if not session.get('ha_pagato'):
         return redirect(url_for('checkout'))
     
-    # Recuperiamo in tempo reale i dati freschi dell'utente per la gestione profilo
     res = supabase.table('utenti').select('*').eq('id_utente', session.get('id_utente')).execute()
     if not res.data:
         return redirect(url_for('auth'))
         
     utente_data = res.data[0]
     
-    # Formattiamo la data di scadenza per renderla leggibile al professore
     data_scadenza_formattata = "N/D"
     if utente_data.get('scadenza_abbonamento'):
         dt = datetime.fromisoformat(utente_data['scadenza_abbonamento'])
         data_scadenza_formattata = dt.strftime("%d/%m/%Y alle %H:%M")
 
-    # Gestione fallback per il nome
     username_display = utente_data.get('username', utente_data.get('nome_completo', session['utente_loggato']))
 
     return render_template(
@@ -335,7 +323,7 @@ def logout():
     return redirect(url_for('home'))
 
 # ==========================================
-# API ENDPOINTS COMPLETI PER CHAT E PROFILO (10 E LODE)
+# API ENDPOINTS COMPLETI PER CHAT E PROFILO
 # ==========================================
 
 @app.route('/api/chats', methods=['GET', 'POST'])
@@ -345,12 +333,10 @@ def manage_chats():
         return jsonify({'error': 'Non autorizzato'}), 401
 
     if request.method == 'GET':
-        # Ottiene tutte le chat ordinate per "fissata" (prima le importanti) e poi per data
         res = supabase.table('chats').select('*').eq('id_utente', id_utente).order('fissata', desc=True).order('creato_il', desc=True).execute()
         return jsonify(res.data)
 
     elif request.method == 'POST':
-        # Creazione nuova chat vuota
         id_chat = str(uuid.uuid4())
         nuova_chat = {
             'id': id_chat,
@@ -402,36 +388,27 @@ def invia_messaggio():
     if not id_chat or not contenuto_utente:
         return jsonify({'error': 'Dati mancanti'}), 400
 
-    # 1. Salviamo il messaggio dell'utente su Supabase
     msg_utente = {'id_chat': id_chat, 'ruolo': 'user', 'contenuto': contenuto_utente}
     supabase.table('messaggi').insert(msg_utente).execute()
 
-    # 2. Recuperiamo lo storico completo di questa specifica chat per dare memoria a Gemini
     storico_res = supabase.table('messaggi').select('*').eq('id_chat', id_chat).order('creato_il', desc=False).execute()
     
     history_gemini = []
     for msg in storico_res.data:
-        # Gemini richiede la mappatura dei ruoli precisi: 'user' e 'model'
         history_gemini.append({
             "role": msg['ruolo'],
             "parts": [msg['contenuto']]
         })
 
     try:
-        # Inizializziamo la chat con lo storico della conversazione
-        # Rimuoviamo l'ultimo messaggio appena inserito dalla storia per passarlo come messaggio attivo
         ultimo_utente = history_gemini.pop()
-        
         chat_session = gemini_model.start_chat(history=history_gemini)
-        
-        # 3. Inviamo il comando all'IA fornendogli anche un'istruzione di base (System Prompt implicito)
         prompt_di_contesto = f"Sei Pathfinder AI, un algoritmo spietato e preciso di orientamento alla carriera. Rispondi in modo professionale ed esecutivo. Rispondi a questo messaggio: {contenuto_utente}"
         response = chat_session.send_message(prompt_di_contesto)
         risposta_ia = response.text
     except Exception as e:
         risposta_ia = f"Errore di connessione con il cervello dell'IA. Verifica la tua API Key. Dettaglio: {str(e)}"
 
-    # 4. Salviamo la risposta di Gemini su Supabase
     msg_ia = {'id_chat': id_chat, 'ruolo': 'model', 'contenuto': risposta_ia}
     supabase.table('messaggi').insert(msg_ia).execute()
 
@@ -449,7 +426,6 @@ def aggiorna_profilo():
     if not nuovo_username or len(nuovo_username.strip()) < 3:
         return jsonify({'error': 'Username non valido'}), 400
 
-    # Aggiorniamo la tabella utenti su Supabase
     supabase.table('utenti').update({'username': nuovo_username}).eq('id_utente', id_utente).execute()
     session['utente_loggato'] = nuovo_username
 
