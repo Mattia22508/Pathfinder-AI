@@ -5,6 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accedi | Pathfinder AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* --- AGGIUNTA DA 10 E LODE: STILI PER ERRORE PASSWORD --- */
+        .input-error {
+            border: 2px solid #ff4d4d !important;
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.4) !important;
+            background-color: rgba(255, 77, 77, 0.05) !important;
+            transition: all 0.3s ease;
+        }
+        .error-message {
+            color: #ff4d4d;
+            font-size: 0.9em;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            text-align: left;
+            font-weight: 600;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
 </head>
 <body>
 
@@ -26,9 +48,13 @@
             <input type="email" name="email" placeholder="Email" required>
             
             <div class="password-wrapper">
-                <input type="password" id="passwordInput" placeholder="Password" required>
+                <input type="password" name="password" id="passwordInput" placeholder="Password" required class="{% if error %}input-error{% endif %}">
                 <span class="toggle-password" id="togglePasswordBtn">👁️</span>
             </div>
+            
+            {% if error %}
+                <div class="error-message">⚠️ {{ error }}</div>
+            {% endif %}
             
             <a href="/reset-password" class="forgot-password">Password dimenticata?</a>
             

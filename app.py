@@ -66,7 +66,8 @@ def auth():
                 password_corretta = False
                 
             if not password_corretta:
-                return render_template('auth.html', error="Password errata o account non configurato!")
+                # MODIFICA CHIRURGICA: Messaggio di errore specifico e invio variabile error
+                return render_template('auth.html', error="Password sbagliata. Riprova.")
             
             # Salviamo i dati in sessione
             session['id_utente'] = utente_trovato['id_utente']
