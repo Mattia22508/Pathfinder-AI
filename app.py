@@ -392,21 +392,31 @@ def invia_messaggio():
     if not id_utente:
         return jsonify({'error': 'Non autorizzato'}), 401
 
-    data = request.get_json()
-    id_chat = data.get('id_chat')
-    contenuto_utente = data.get('messaggio')
+    # Rileviamo dinamicamente se la richiesta è un Form (file allegati) o JSON semplice
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        id_chat = request.form.get('id_chat')
+        contenuto_utente = request.form.get('messaggio')
+        file_allegato = request.files.get('file')
+    else:
+        data = request.get_json()
+        id_chat = data.get('id_chat')
+        contenuto_utente = data.get('messaggio')
+        file_allegato = None
 
     if not id_chat or not contenuto_utente:
         return jsonify({'error': 'Dati mancanti'}), 400
 
-    # 1. Salviamo il messaggio dell'utente nel DB
-    msg_utente = {'id_chat': id_chat, 'ruolo': 'user', 'contenuto': contenuto_utente}
+    # 1. Salviamo il messaggio nel DB. Se c'è un file, aggiungiamo una nota testuale.
+    testo_per_db = contenuto_utente
+    if file_allegato:
+        testo_per_db = f"📎 [File allegato: {file_allegato.filename}]\n" + contenuto_utente
+
+    msg_utente = {'id_chat': id_chat, 'ruolo': 'user', 'contenuto': testo_per_db}
     supabase.table('messaggi').insert(msg_utente).execute()
 
-    # 2. Recuperiamo la cronologia completa per mantenere il contesto
+    # 2. Recuperiamo la cronologia
     storico_res = supabase.table('messaggi').select('*').eq('id_chat', id_chat).order('creato_il', desc=False).execute()
     
-    # 3. Costruiamo lo storico secondo la formattazione del NUOVO SDK
     contents_list = []
     for msg in storico_res.data:
         ruolo_sdk = "user" if msg['ruolo'] == "user" else "model"
@@ -417,13 +427,29 @@ def invia_messaggio():
             )
         )
 
-    # 4. Impostiamo il comportamento dell'IA tramite la configurazione nativa di sistema
+    # 3. IL TOCCO MAGICO: Se c'è un file caricato, modifichiamo l'ultimo messaggio inviato
+    # all'IA iniettando fisicamente i byte del file direttamente in memoria!
+    if file_allegato:
+        file_bytes = file_allegato.read()
+        mime_type = file_allegato.mimetype
+        # Rimuoviamo l'ultimo messaggio (solo testo) inserito dal ciclo precedente
+        contents_list.pop()
+        # E lo ricreiamo agganciando il file ai dati inviati al modello
+        contents_list.append(
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+                    types.Part.from_text(text=contenuto_utente)
+                ]
+            )
+        )
+
     config_ia = types.GenerateContentConfig(
         system_instruction="Sei Pathfinder AI, un algoritmo spietato e preciso di orientamento alla carriera. Rispondi in modo professionale ed esecutivo."
     )
 
     try:
-        # Chiamata corretta al nuovo SDK di Gemini
         response = ai_client.models.generate_content(
             model='gemini-3.5-flash',
             contents=contents_list,
@@ -431,9 +457,9 @@ def invia_messaggio():
         )
         risposta_ia = response.text
     except Exception as e:
-        risposta_ia = f"Errore di connessione con il cervello dell'IA. Dettaglio: {str(e)}"
+        risposta_ia = f"Errore durante l'analisi del file da parte dell'IA. Dettaglio: {str(e)}"
 
-    # 5. Salviamo la risposta dell'IA nel DB
+    # 4. Salviamo la risposta dell'IA nel DB
     msg_ia = {'id_chat': id_chat, 'ruolo': 'model', 'contenuto': risposta_ia}
     supabase.table('messaggi').insert(msg_ia).execute()
 

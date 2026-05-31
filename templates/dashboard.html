@@ -165,13 +165,22 @@
                     <div class="ai-input-wrapper">
                         <div class="loading-indicator" id="loadingIndicator">
                             <i class="material-icons" style="font-size: 1rem; vertical-align: middle; animation: spin 1s linear infinite;">sync</i> 
-                            Pathfinder AI sta elaborando la traiettoria...
+                            Pathfinder AI sta pensando...
                         </div>
-                        <div class="ai-input-box">
-                            <button class="attach-btn" title="Allega CV o File" onclick="alert('Integrazione Storage Attiva per la versione Finale (10 e Lode).')">
+                        <div class="ai-input-box" style="position: relative;">
+                            <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx" style="display: none;" onchange="mostraNomeFile()">
+                            
+                            <button class="attach-btn" title="Allega CV o File" onclick="document.getElementById('fileInput').click()">
                                 <i class="material-icons">attach_file</i>
                             </button>
-                            <input type="text" id="chatInput" placeholder="Chiedi a Pathfinder AI o pianifica una Roadmap..." onkeypress="if(event.key === 'Enter') inviaMessaggio()">
+
+                            <div id="filePreview" style="display:none; position:absolute; top:-35px; left:10px; background:rgba(0,255,204,0.1); border:1px solid var(--neon-accent); padding:4px 10px; border-radius:12px; font-size:0.8rem; color:var(--neon-accent); align-items:center; z-index:10;">
+                                <span id="fileNameDisplay"></span>
+                                <i class="material-icons" style="font-size:1rem; cursor:pointer; margin-left:8px;" onclick="rimuoviFile()">close</i>
+                            </div>
+
+                            <input type="text" id="chatInput" placeholder="Chiedi a Pathfinder AI o allega un CV per l'analisi..." onkeypress="if(event.key === 'Enter') inviaMessaggio()">
+                            
                             <button class="send-btn" onclick="inviaMessaggio()">
                                 <i class="material-icons">arrow_upward</i>
                             </button>
@@ -328,29 +337,57 @@
             input.value = '';
         }
 
+// Variabile globale per tenere traccia del file caricato
+        let fileSelezionato = null;
+
+        function mostraNomeFile() {
+            const input = document.getElementById('fileInput');
+            if (input.files.length > 0) {
+                fileSelezionato = input.files[0];
+                document.getElementById('fileNameDisplay').innerText = fileSelezionato.name;
+                document.getElementById('filePreview').style.display = 'flex';
+            }
+        }
+
+        function rimuoviFile() {
+            document.getElementById('fileInput').value = '';
+            fileSelezionato = null;
+            document.getElementById('filePreview').style.display = 'none';
+        }
+
         function eseguiInvioMessaggio(testo) {
-            // Rimuoviamo scritte placeholder interne se presenti
             if(document.getElementById('chatWindow').innerText.includes("La linea temporale è vuota")) {
                 document.getElementById('chatWindow').innerHTML = '';
             }
 
-            // Mostriamo immediatamente il messaggio dell'utente sullo schermo
-            appendiBollaMessaggio('user', testo);
+            // Mostriamo il messaggio nella UI (aggiungendo la dicitura del file se presente)
+            let testoUI = testo;
+            if (fileSelezionato) {
+                testoUI = `📎 [File allegato: ${fileSelezionato.name}]\n` + testo;
+            }
+
+            appendiBollaMessaggio('user', testoUI);
             sccorriInBasso();
 
-            // Attiviamo l'indicatore di caricamento dell'IA
             document.getElementById('loadingIndicator').style.display = 'block';
 
-            // Inviamo la chiamata POST asincrona verso Flask
+            // Prepariamo il pacchetto dati (FormData supporta i file, a differenza del JSON standard)
+            const formData = new FormData();
+            formData.append('id_chat', currentChatId);
+            formData.append('messaggio', testo);
+            if (fileSelezionato) {
+                formData.append('file', fileSelezionato);
+            }
+
+            // Inviamo a Flask
             fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_chat: currentChatId, messaggio: testo })
+                body: formData // Nessun header Content-Type: il browser lo imposta in automatico per i FormData
             })
             .then(res => res.json())
             .then(data => {
                 document.getElementById('loadingIndicator').style.display = 'none';
-                // Mostriamo la risposta reale di Gemini
+                rimuoviFile(); // Resettiamo la graffetta dopo l'invio
                 appendiBollaMessaggio('model', data.risposta);
                 sccorriInBasso();
             })
