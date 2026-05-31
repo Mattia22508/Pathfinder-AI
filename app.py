@@ -18,7 +18,7 @@ ts = URLSafeTimedSerializer(app.secret_key)
 # CONFIGURAZIONE OAUTH 2.0 (GOOGLE LOGIN)
 # ==========================================
 oauth = OAuth(app)
-google = oauth.register(
+google = oauth.register( 
     name='google',
     # ⚠️ IMPORTANTE: Sostituisci queste due stringhe con quelle di Google Cloud (vedi info sotto)
     client_id='413339596512-evho3j40c9iss0uoka9me5656c6tlpfv.apps.googleusercontent.com',
