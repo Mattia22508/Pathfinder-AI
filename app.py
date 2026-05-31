@@ -2,15 +2,30 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
-# AGGIUNTA DA 10 E LODE: Serializer per generare token crittografici sicuri a tempo
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
+# IMPORT AGGIUNTIVI DA 10 E LODE PER GOOGLE OAUTH
+from authlib.integrations.flask_client import OAuth
+import os
 
 app = Flask(__name__)
 # La chiave segreta serve a Flask per ricordare gli utenti attivi e firmare i token
 app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 
-# Inizializziamo il serializzatore crittografico usando la secret_key dell'app
+# Inizializziamo il serializzatore crittografico
 ts = URLSafeTimedSerializer(app.secret_key)
+
+# ==========================================
+# CONFIGURAZIONE OAUTH 2.0 (GOOGLE LOGIN)
+# ==========================================
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    # ⚠️ IMPORTANTE: Sostituisci queste due stringhe con quelle di Google Cloud (vedi info sotto)
+    client_id='INSERISCI_QUI_IL_TUO_CLIENT_ID',
+    client_secret='INSERISCI_QUI_IL_TUO_CLIENT_SECRET',
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 # ==========================================
 # CONFIGURAZIONE DATABASE SUPABASE
@@ -18,7 +33,6 @@ ts = URLSafeTimedSerializer(app.secret_key)
 SUPABASE_URL = "https://veaqmkhmbdwjfcjqtpyf.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlYXFta2htYmR3amZjanF0cHlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMjMyNjQsImV4cCI6MjA5NTY5OTI2NH0.lOQrR5G_hY2NEtd-somLLZq4X2PtovXrvt8BFIav2r8"
 
-# Inizializziamo il client per parlare con il Database
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 @app.route('/')
@@ -35,34 +49,80 @@ def come_funziona():
 
 
 # ==========================================
-# GESTIONE RESET PASSWORD (REDIREZIONE AUTOMATICA)
+# ACCESSO TRAMITE GOOGLE (SSO) DA 10 E LODE
+# ==========================================
+@app.route('/login/google')
+def login_google():
+    # Genera l'URL di ritorno in modo dinamico e reindirizza ai server di Google
+    redirect_uri = url_for('authorize_google', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/authorize/google')
+def authorize_google():
+    try:
+        token = google.authorize_access_token()
+        user_info = token.get('userinfo')
+    except Exception as e:
+        # Se l'utente annulla il login o c'è un errore, torna alla pagina di auth
+        return redirect(url_for('auth'))
+        
+    email = user_info.get('email')
+    nome_completo = user_info.get('name')
+    
+    # 1. Controlliamo se l'utente Google esiste già nel nostro database Supabase
+    risposta = supabase.table('utenti').select('*').eq('email', email).execute()
+    
+    if len(risposta.data) > 0:
+        # UTENTE ESISTENTE: Effettua il login automatico
+        utente_trovato = risposta.data[0]
+        session['id_utente'] = utente_trovato['id_utente']
+        session['utente_loggato'] = utente_trovato['nome_completo']
+        
+        if utente_trovato.get('piano_abbonamento') != 'gratuito':
+            session['ha_pagato'] = True
+            return redirect(url_for('dashboard'))
+        else:
+            session['ha_pagato'] = False
+            return redirect(url_for('checkout'))
+    else:
+        # NUOVO UTENTE: Registrazione "Seamless" silente (senza chiedere password)
+        nuovo_utente = {
+            'nome_completo': nome_completo,
+            'email': email,
+            'password_hash': 'GOOGLE_SSO_NO_PASSWORD', # Segnaposto sicuro
+            'metodo_accesso': 'google',
+            'piano_abbonamento': 'gratuito'
+        }
+        
+        inserimento = supabase.table('utenti').insert(nuovo_utente).execute()
+        
+        session['id_utente'] = inserimento.data[0]['id_utente']
+        session['utente_loggato'] = nome_completo
+        session['ha_pagato'] = False
+        
+        return redirect(url_for('checkout'))
+
+
+# ==========================================
+# GESTIONE RESET PASSWORD
 # ==========================================
 @app.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
     if request.method == 'POST':
         email = request.form.get('email')
-        
-        # 1. Controlliamo se l'email inserita esiste effettivamente nel DB
         risposta = supabase.table('utenti').select('*').eq('email', email).execute()
         
         if len(risposta.data) == 0:
-            # Email non trovata: restituiamo un errore elegante sulla UI
             return render_template('reset_password.html', step='request', error="Nessun account associato a questa email.")
         
-        # 2. L'email esiste! Generiamo un Token Sicuro firmato digitalmente
         token = ts.dumps(email, salt='recover-key')
-        
-        # 3. CAPACITÀ DA 10 E LODE: Reindirizzamento istantaneo e automatico alla rotta protetta dal token
-        # Questo simula l'apertura immediata del link che in produzione verrebbe inviato via mail.
         return redirect(url_for('reset_with_token', token=token))
         
     return render_template('reset_password.html', step='request')
 
-
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_with_token(token):
     try:
-        # Il token viene decodificato. Se è stato alterato o è scaduto (max_age=3600s), solleva un'eccezione.
         email = ts.loads(token, salt='recover-key', max_age=3600)
     except (SignatureExpired, BadTimeSignature):
         return render_template('reset_password.html', step='error', error="Il link di ripristino è scaduto o non è valido.")
@@ -71,14 +131,10 @@ def reset_with_token(token):
         nuova_password = request.form.get('password')
         conferma_password = request.form.get('confirm_password')
         
-        # Controllo di coerenza delle password inserite
         if nuova_password != conferma_password:
             return render_template('reset_password.html', step='change', token=token, error="Le password inserite non coincidono.")
         
-        # Crittografia della nuova password tramite l'algoritmo sicuro di Werkzeug
         password_criptata = generate_password_hash(nuova_password)
-        
-        # Aggiornamento atomico sul database Cloud Supabase
         supabase.table('utenti').update({'password_hash': password_criptata}).eq('email', email).execute()
         
         return render_template('reset_password.html', step='success')
@@ -87,7 +143,7 @@ def reset_with_token(token):
 
 
 # ==========================================
-# ACCESSO E REGISTRAZIONE (Verifica Hash Corretta)
+# ACCESSO E REGISTRAZIONE STANDARD
 # ==========================================
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -101,6 +157,10 @@ def auth():
         if len(risposta.data) > 0:
             utente_trovato = risposta.data[0]
             hash_salvato = utente_trovato.get('password_hash')
+            
+            # Impedisce login standard se l'utente è registrato tramite Google
+            if utente_trovato.get('metodo_accesso') == 'google' and hash_salvato == 'GOOGLE_SSO_NO_PASSWORD':
+                return render_template('auth.html', error="Hai creato questo account tramite Google. Usa il pulsante 'Accedi con Google'.")
             
             password_corretta = False
             stringa_password = password if password else ''

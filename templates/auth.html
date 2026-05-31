@@ -5,28 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accedi | Pathfinder AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        /* --- AGGIUNTA DA 10 E LODE: STILI PER ERRORE PASSWORD --- */
-        .input-error {
-            border: 2px solid #ff4d4d !important;
-            box-shadow: 0 0 10px rgba(255, 77, 77, 0.4) !important;
-            background-color: rgba(255, 77, 77, 0.05) !important;
-            transition: all 0.3s ease;
-        }
-        .error-message {
-            color: #ff4d4d;
-            font-size: 0.9em;
-            margin-top: -10px;
-            margin-bottom: 15px;
-            text-align: left;
-            font-weight: 600;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
 </head>
 <body>
 
@@ -43,18 +21,20 @@
         <h2>Accedi o Registrati</h2>
         <p>Inserisci i tuoi dati per accedere alla piattaforma.</p>
         
+        {% if error %}
+            <div style="color: #ff4d4d; border: 1px solid #ff4d4d; background: rgba(255,77,77,0.1); padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; font-size: 0.9rem;">
+                ⚠️ {{ error }}
+            </div>
+        {% endif %}
+        
         <form class="auth-form" action="/auth" method="POST">
             <input type="text" name="username" placeholder="Nome Utente" required>
             <input type="email" name="email" placeholder="Email" required>
             
             <div class="password-wrapper">
-                <input type="password" name="password" id="passwordInput" placeholder="Password" required class="{% if error %}input-error{% endif %}">
+                <input type="password" name="password" id="passwordInput" placeholder="Password" required>
                 <span class="toggle-password" id="togglePasswordBtn">👁️</span>
             </div>
-            
-            {% if error %}
-                <div class="error-message">⚠️ {{ error }}</div>
-            {% endif %}
             
             <a href="/reset-password" class="forgot-password">Password dimenticata?</a>
             
@@ -62,10 +42,10 @@
             
             <div class="divider"><span>oppure</span></div>
             
-            <button type="button" class="btn btn-google">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Logo Google">
+            <a href="/login/google" class="btn btn-google" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Logo Google" style="width: 20px; height: 20px;">
                 Accedi con Google
-            </button>
+            </a>
         </form>
     </div>
 
