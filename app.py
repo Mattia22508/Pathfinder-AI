@@ -16,13 +16,12 @@ app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 ts = URLSafeTimedSerializer(app.secret_key)
 
 # ==========================================
-# CONFIGURAZIONE OAUTH 2.0 (GOOGLE LOGIN)
+# CONFIGURAZIONE OAUTH 2.0 (GOOGLE LOGIN) - CONFIGURATA DA 10 E LODE
 # ==========================================
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id='413339596512evho3j40c9iss0uoka9me5656c6tlpfv.apps.googleusercontent.com',
-    client_secret='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',
+    client_id='413339596512-evho3j40c9iss0uoka9me5656c6tlpfv.apps.googleusercontent.com', 
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
@@ -106,54 +105,56 @@ def reset_with_token(token):
 # ==========================================
 @app.route('/login/google')
 def login_google():
-    redirect_uri = url_for('authorize_google', _external=True)
+    # Genera automaticamente l'URI di reindirizzamento basandosi sul server attivo (locale o cloud)
+    redirect_uri = url_for('google_callback', _external=True)
     return google.authorize_redirect(redirect_uri)
 
-@app.route('/authorize/google')
-def authorize_google():
+@app.route('/login/google/callback')
+def google_callback():
     try:
+        # Preleviamo il token sicuro da Google
         token = google.authorize_access_token()
-        user_info = token.get('userinfo')
-    except Exception as e:
-        return redirect(url_for('auth'))
+        resp = google.get('https://www.googleapis.com/oauth2/v3/userinfo')
+        user_info = resp.json()
         
-    email = user_info.get('email')
-    nome_completo = user_info.get('name')
-    
-    risposta = supabase.table('utenti').select('*').eq('email', email).execute()
-    
-    if len(risposta.data) > 0:
-        utente_trovato = risposta.data[0]
-        session['id_utente'] = utente_trovato.get('id_utente')
-        session['utente_loggato'] = utente_trovato.get('username', utente_trovato.get('nome_completo'))
+        email = user_info.get('email')
+        username = user_info.get('name', email.split('@')[0])
         
-        piano = utente_trovato.get('piano_abbonamento')
-        if piano and piano not in ['gratuito', 'Nessuno']:
-            session['ha_pagato'] = True
-            return redirect(url_for('dashboard'))
+        # 10 E LODE: Verifichiamo se l'utente esiste già nel database Supabase
+        utente_db = supabase.table('utenti').select('*').eq('email', email).execute()
+        
+        if not utente_db.data:
+            # Se è un nuovo utente, lo registriamo all'istante su Supabase
+            nuovo_utente = {
+                'username': username,
+                'email': email,
+                'piano_abbonamento': 'Free'
+            }
+            res = supabase.table('utenti').insert(nuovo_utente).execute()
+            if res.data:
+                session['id_utente'] = res.data[0]['id_utente']
+                session['ha_pagato'] = False
         else:
-            session['ha_pagato'] = False
-            return redirect(url_for('checkout'))
-    else:
-        # L'ID lo genera Supabase in automatico
-        nuovo_utente = {
-            'username': nome_completo,
-            'nome_completo': nome_completo,
-            'email': email,
-            'password': 'GOOGLE_SSO_NO_PASSWORD',
-            'password_hash': 'GOOGLE_SSO_NO_PASSWORD',
-            'metodo_accesso': 'google',
-            'piano_abbonamento': 'Nessuno'
-        }
-        
-        inserimento = supabase.table('utenti').insert(nuovo_utente).execute()
-        
-        session['id_utente'] = inserimento.data[0]['id_utente']
-        session['utente_loggato'] = nome_completo
-        session['ha_pagato'] = False
-        
-        return redirect(url_for('checkout'))
+            # Se esiste già, recuperiamo i suoi dati di sessione e il piano
+            session['id_utente'] = utente_db.data[0]['id_utente']
+            piano = utente_db.data[0].get('piano_abbonamento', 'Free')
+            
+            # Se ha un piano attivo, sblocchiamo la dashboard, altrimenti va al checkout
+            if piano in ['Executive (Pro)', 'Elite', 'Starter']:
+                session['ha_pagato'] = True
+            else:
+                session['ha_pagato'] = False
 
+        # Autentichiamo l'utente nella sessione di Flask
+        session['utente_loggato'] = username
+        
+        # Reindirizzamento intelligente
+        if session.get('ha_pagato'):
+            return redirect(url_for('dashboard'))
+        return redirect(url_for('checkout'))
+        
+    except Exception as e:
+        return f"Errore critico durante l'autenticazione Google: {str(e)}"
 
 # ==========================================
 # AUTENTICAZIONE STANDARD
