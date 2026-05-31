@@ -82,7 +82,7 @@ def reset_with_token(token):
         return render_template('reset_password.html', step='error', error="Il link di ripristino è scaduto o non è valido.")
         
     if request.method == 'POST':
-        nuova_password = request.form.get('password')
+        nuova_password = request.form.get('password_hash')
         conferma_password = request.form.get('confirm_password')
         
         if nuova_password != conferma_password:
@@ -91,7 +91,7 @@ def reset_with_token(token):
         password_criptata = generate_password_hash(nuova_password)
         
         update_data = {}
-        update_data['password'] = password_criptata
+        update_data['password_hash'] = password_criptata
         update_data['password_hash'] = password_criptata
         
         supabase.table('utenti').update(update_data).eq('email', email).execute()
