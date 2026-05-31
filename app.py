@@ -3,24 +3,20 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
-# IMPORT AGGIUNTIVI DA 10 E LODE PER GOOGLE OAUTH
 from authlib.integrations.flask_client import OAuth
 import os
 
 app = Flask(__name__)
-# La chiave segreta serve a Flask per ricordare gli utenti attivi e firmare i token
 app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
 
-# Inizializziamo il serializzatore crittografico
 ts = URLSafeTimedSerializer(app.secret_key)
 
 # ==========================================
 # CONFIGURAZIONE OAUTH 2.0 (GOOGLE LOGIN)
 # ==========================================
 oauth = OAuth(app)
-google = oauth.register( 
+google = oauth.register(
     name='google',
-     
     client_id='413339596512-evho3j40c9iss0uoka9me5656c6tlpfv.apps.googleusercontent.com',
     client_secret='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',
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
@@ -49,11 +45,10 @@ def come_funziona():
 
 
 # ==========================================
-# ACCESSO TRAMITE GOOGLE (SSO) DA 10 E LODE
+# ACCESSO TRAMITE GOOGLE (SSO)
 # ==========================================
 @app.route('/login/google')
 def login_google():
-    # Genera l'URL di ritorno in modo dinamico e reindirizza ai server di Google
     redirect_uri = url_for('authorize_google', _external=True)
     return google.authorize_redirect(redirect_uri)
 
@@ -63,17 +58,14 @@ def authorize_google():
         token = google.authorize_access_token()
         user_info = token.get('userinfo')
     except Exception as e:
-        # Se l'utente annulla il login o c'è un errore, torna alla pagina di auth
         return redirect(url_for('auth'))
         
     email = user_info.get('email')
     nome_completo = user_info.get('name')
     
-    # 1. Controlliamo se l'utente Google esiste già nel nostro database Supabase
     risposta = supabase.table('utenti').select('*').eq('email', email).execute()
     
     if len(risposta.data) > 0:
-        # UTENTE ESISTENTE: Effettua il login automatico
         utente_trovato = risposta.data[0]
         session['id_utente'] = utente_trovato['id_utente']
         session['utente_loggato'] = utente_trovato['nome_completo']
@@ -85,11 +77,10 @@ def authorize_google():
             session['ha_pagato'] = False
             return redirect(url_for('checkout'))
     else:
-        # NUOVO UTENTE: Registrazione "Seamless" silente (senza chiedere password)
         nuovo_utente = {
             'nome_completo': nome_completo,
             'email': email,
-            'password_hash': 'GOOGLE_SSO_NO_PASSWORD', # Segnaposto sicuro
+            'password_hash': 'GOOGLE_SSO_NO_PASSWORD',
             'metodo_accesso': 'google',
             'piano_abbonamento': 'gratuito'
         }
@@ -158,7 +149,6 @@ def auth():
             utente_trovato = risposta.data[0]
             hash_salvato = utente_trovato.get('password_hash')
             
-            # Impedisce login standard se l'utente è registrato tramite Google
             if utente_trovato.get('metodo_accesso') == 'google' and hash_salvato == 'GOOGLE_SSO_NO_PASSWORD':
                 return render_template('auth.html', error="Hai creato questo account tramite Google. Usa il pulsante 'Accedi con Google'.")
             
@@ -210,8 +200,9 @@ def auth():
         
     return render_template('auth.html')
 
+
 # ==========================================
-# PAGAMENTO / CHECKOUT
+# PAGAMENTO / CHECKOUT (INTEGRATO PAYPAL)
 # ==========================================
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
@@ -225,8 +216,11 @@ def checkout():
         importo_pagato = 0.0
         giorni_validita = 30
         piano_assegnato = piano_scelto
-        ultime_cifre = '4242'
         
+        # CHICCA: Se l'utente ha pagato tramite i bottoni reali, impostiamo il flag identificativo
+        ultime_cifre = 'PAYPAL'
+        
+        # Gestione codici promozionali speciali
         if codice_inserito:
             controllo_promo = supabase.table('codici_promozionali').select('*').eq('codice', codice_inserito).execute()
             if len(controllo_promo.data) > 0:
@@ -236,6 +230,7 @@ def checkout():
                 importo_pagato = 0.0
                 ultime_cifre = 'VIP0'
                 
+        # Calcolo dell'importo se non è stato usato un codice sconto totale
         if importo_pagato == 0.0 and ultime_cifre != 'VIP0':
             if piano_scelto == 'starter': importo_pagato = 19.00
             elif piano_scelto == 'pro': importo_pagato = 49.00
@@ -243,6 +238,7 @@ def checkout():
             
         data_scadenza = (datetime.now() + timedelta(days=giorni_validita)).isoformat()
         
+        # Scrittura dei dati tracciati sul Database Cloud
         nuova_transazione = {
             'id_utente': session.get('id_utente'),
             'piano_acquistato': piano_assegnato,
@@ -260,6 +256,7 @@ def checkout():
         return redirect(url_for('dashboard'))
         
     return render_template('checkout.html')
+
 
 # ==========================================
 # AREA RISERVATA / DASHBOARD
