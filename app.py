@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 from authlib.integrations.flask_client import OAuth
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import uuid
 import os
 
@@ -40,8 +41,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # CONFIGURAZIONE INTELLIGENZA ARTIFICIALE GEMINI
 # ==========================================
 GEMINI_API_KEY = "AQ.Ab8RN6LUltJ203iA7tgKXFm9MxvA6gry-eB0CeB1fajF4I6hbQ"  # <-- Ricordati di inserire qui la tua API Key di Gemini!
-genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel('gemini-pro')
+ai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 @app.route('/')
@@ -399,27 +399,41 @@ def invia_messaggio():
     if not id_chat or not contenuto_utente:
         return jsonify({'error': 'Dati mancanti'}), 400
 
+    # 1. Salviamo il messaggio dell'utente nel DB
     msg_utente = {'id_chat': id_chat, 'ruolo': 'user', 'contenuto': contenuto_utente}
     supabase.table('messaggi').insert(msg_utente).execute()
 
+    # 2. Recuperiamo la cronologia completa per mantenere il contesto
     storico_res = supabase.table('messaggi').select('*').eq('id_chat', id_chat).order('creato_il', desc=False).execute()
     
-    history_gemini = []
+    # 3. Costruiamo lo storico secondo la formattazione del NUOVO SDK
+    contents_list = []
     for msg in storico_res.data:
-        history_gemini.append({
-            "role": msg['ruolo'],
-            "parts": [msg['contenuto']]
-        })
+        ruolo_sdk = "user" if msg['ruolo'] == "user" else "model"
+        contents_list.append(
+            types.Content(
+                role=ruolo_sdk,
+                parts=[types.Part.from_text(text=msg['contenuto'])]
+            )
+        )
+
+    # 4. Impostiamo il comportamento dell'IA tramite la configurazione nativa di sistema
+    config_ia = types.GenerateContentConfig(
+        system_instruction="Sei Pathfinder AI, un algoritmo spietato e preciso di orientamento alla carriera. Rispondi in modo professionale ed esecutivo."
+    )
 
     try:
-        ultimo_utente = history_gemini.pop()
-        chat_session = gemini_model.start_chat(history=history_gemini)
-        prompt_di_contesto = f"Sei Pathfinder AI, un algoritmo spietato e preciso di orientamento alla carriera. Rispondi in modo professionale ed esecutivo. Rispondi a questo messaggio: {contenuto_utente}"
-        response = chat_session.send_message(prompt_di_contesto)
+        # Chiamata corretta al nuovo SDK di Gemini
+        response = ai_client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=contents_list,
+            config=config_ia
+        )
         risposta_ia = response.text
     except Exception as e:
-        risposta_ia = f"Errore di connessione con il cervello dell'IA. Verifica la tua API Key. Dettaglio: {str(e)}"
+        risposta_ia = f"Errore di connessione con il cervello dell'IA. Dettaglio: {str(e)}"
 
+    # 5. Salviamo la risposta dell'IA nel DB
     msg_ia = {'id_chat': id_chat, 'ruolo': 'model', 'contenuto': risposta_ia}
     supabase.table('messaggi').insert(msg_ia).execute()
 
