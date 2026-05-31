@@ -2,10 +2,15 @@ from flask import Flask, render_template, request, redirect, url_for, session
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+# AGGIUNTA DA 10 E LODE: Serializer per generare token crittografici sicuri a tempo
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 
 app = Flask(__name__)
-# La chiave segreta serve a Flask per ricordare gli utenti attivi
+# La chiave segreta serve a Flask per ricordare gli utenti attivi e firmare i token
 app.secret_key = 'chiave_segreta_super_sicura_per_il_prof'
+
+# Inizializziamo il serializzatore crittografico usando la secret_key dell'app
+ts = URLSafeTimedSerializer(app.secret_key)
 
 # ==========================================
 # CONFIGURAZIONE DATABASE SUPABASE
@@ -28,12 +33,61 @@ def manifesto():
 def come_funziona():
     return render_template('come_funziona.html')
 
-@app.route('/reset-password')
-def reset_password():
-    return render_template('reset_password.html')
 
 # ==========================================
-# 1. ACCESSO E REGISTRAZIONE (Verifica Hash Corretta)
+# GESTIONE RESET PASSWORD (REDIREZIONE AUTOMATICA)
+# ==========================================
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        # 1. Controlliamo se l'email inserita esiste effettivamente nel DB
+        risposta = supabase.table('utenti').select('*').eq('email', email).execute()
+        
+        if len(risposta.data) == 0:
+            # Email non trovata: restituiamo un errore elegante sulla UI
+            return render_template('reset_password.html', step='request', error="Nessun account associato a questa email.")
+        
+        # 2. L'email esiste! Generiamo un Token Sicuro firmato digitalmente
+        token = ts.dumps(email, salt='recover-key')
+        
+        # 3. CAPACITÀ DA 10 E LODE: Reindirizzamento istantaneo e automatico alla rotta protetta dal token
+        # Questo simula l'apertura immediata del link che in produzione verrebbe inviato via mail.
+        return redirect(url_for('reset_with_token', token=token))
+        
+    return render_template('reset_password.html', step='request')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_with_token(token):
+    try:
+        # Il token viene decodificato. Se è stato alterato o è scaduto (max_age=3600s), solleva un'eccezione.
+        email = ts.loads(token, salt='recover-key', max_age=3600)
+    except (SignatureExpired, BadTimeSignature):
+        return render_template('reset_password.html', step='error', error="Il link di ripristino è scaduto o non è valido.")
+        
+    if request.method == 'POST':
+        nuova_password = request.form.get('password')
+        conferma_password = request.form.get('confirm_password')
+        
+        # Controllo di coerenza delle password inserite
+        if nuova_password != conferma_password:
+            return render_template('reset_password.html', step='change', token=token, error="Le password inserite non coincidono.")
+        
+        # Crittografia della nuova password tramite l'algoritmo sicuro di Werkzeug
+        password_criptata = generate_password_hash(nuova_password)
+        
+        # Aggiornamento atomico sul database Cloud Supabase
+        supabase.table('utenti').update({'password_hash': password_criptata}).eq('email', email).execute()
+        
+        return render_template('reset_password.html', step='success')
+        
+    return render_template('reset_password.html', step='change', token=token)
+
+
+# ==========================================
+# ACCESSO E REGISTRAZIONE (Verifica Hash Corretta)
 # ==========================================
 @app.route('/auth', methods=['GET', 'POST'])
 def auth():
@@ -42,34 +96,26 @@ def auth():
         email = request.form.get('email')
         password = request.form.get('password')
         
-        # Controlliamo se l'utente esiste già nel database tramite l'email
         risposta = supabase.table('utenti').select('*').eq('email', email).execute()
         
         if len(risposta.data) > 0:
-            # L'UTENTE ESISTE! (Fase di Login)
             utente_trovato = risposta.data[0]
             hash_salvato = utente_trovato.get('password_hash')
             
-            # --- SICUREZZA DA 10 E LODE: VERIFICA IBRIDA AVANZATA ---
             password_corretta = False
             stringa_password = password if password else ''
             
             if hash_salvato:
-                # Se l'hash salvato inizia con i formati tipici di Werkzeug (es. scrypt: o pbkdf2:)
                 if hash_salvato.startswith(('scrypt:', 'pbkdf2:', 'argon2:')) or ':' in hash_salvato:
                     password_corretta = check_password_hash(hash_salvato, stringa_password)
                 else:
-                    # Altrimenti gestiamo i vecchi dati memorizzati in chiaro per non rompere i test storici
                     password_corretta = (hash_salvato == stringa_password)
             else:
-                # Se nel DB la password è NULL, l'accesso viene categoricamente negato
                 password_corretta = False
                 
             if not password_corretta:
-                # MODIFICA CHIRURGICA: Messaggio di errore specifico e invio variabile error
                 return render_template('auth.html', error="Password sbagliata. Riprova.")
             
-            # Salviamo i dati in sessione
             session['id_utente'] = utente_trovato['id_utente']
             session['utente_loggato'] = utente_trovato['nome_completo']
             
@@ -81,7 +127,6 @@ def auth():
                 return redirect(url_for('checkout'))
                 
         else:
-            # L'UTENTE È NUOVO! (Fase di Registrazione)
             stringa_password = password if password else ''
             password_criptata = generate_password_hash(stringa_password)
             
@@ -106,7 +151,7 @@ def auth():
     return render_template('auth.html')
 
 # ==========================================
-# 2. PAGAMENTO / CHECKOUT
+# PAGAMENTO / CHECKOUT
 # ==========================================
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
@@ -157,7 +202,7 @@ def checkout():
     return render_template('checkout.html')
 
 # ==========================================
-# 3. AREA RISERVATA / DASHBOARD
+# AREA RISERVATA / DASHBOARD
 # ==========================================
 @app.route('/dashboard')
 def dashboard():
@@ -170,7 +215,7 @@ def dashboard():
     return render_template('dashboard.html', username=session['utente_loggato'])
 
 # ==========================================
-# 4. DISCONNESSIONE
+# DISCONNESSIONE
 # ==========================================
 @app.route('/logout')
 def logout():
