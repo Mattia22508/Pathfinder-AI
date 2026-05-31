@@ -192,7 +192,7 @@ def auth():
                 piano = utente.get('piano_abbonamento')
                 if piano and piano not in ['gratuito', 'Nessuno'] and utente.get('scadenza_abbonamento'):
                     scadenza = datetime.fromisoformat(utente['scadenza_abbonamento'])
-                    if scadenza > datetime.now():
+                    if scadenza.replace(tzinfo=None) > datetime.now():
                         session['ha_pagato'] = True
                         return redirect(url_for('dashboard'))
                 
