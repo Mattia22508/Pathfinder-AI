@@ -205,15 +205,14 @@ def auth():
             nome_utente = username if username else email.split('@')[0]
             
             nuovo_record = {
-                'username': nome_utente,
-                'nome_completo': nome_utente,
-                'email': email,
-                'password': password_criptata,
-                'password_hash': password_criptata,
-                'metodo_accesso': 'email',
-                'piano_abbonamento': 'Nessuno',
-                'scadenza_abbonamento': None
-            }
+             'username': nome_utente,
+             'nome_completo': nome_utente,
+             'email': email,
+             'password_hash': password_criptata, # <--- Teniamo solo questa!
+             'metodo_accesso': 'email',
+             'piano_abbonamento': 'Nessuno',
+            'scadenza_abbonamento': None
+         }
             
             inserimento = supabase.table('utenti').insert(nuovo_record).execute()
             
