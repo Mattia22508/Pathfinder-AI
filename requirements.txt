@@ -4,4 +4,4 @@ Werkzeug
 itsdangerous
 authlib
 google-genai
-requests
+requests 
