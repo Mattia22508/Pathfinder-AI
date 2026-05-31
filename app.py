@@ -125,29 +125,40 @@ def google_callback():
         utente_db = supabase.table('utenti').select('*').eq('email', email).execute()
         
         if not utente_db.data:
-            # Se è un nuovo utente, lo registriamo usando 'nome_completo' al posto di 'username'
+            # Se è un nuovo utente, lo registriamo con piano Nessuno (andrà al checkout)
             nuovo_utente = {
                 'nome_completo': nome_utente,
                 'email': email,
-                'piano_abbonamento': 'Free'
+                'piano_abbonamento': 'Nessuno',
+                'scadenza_abbonamento': None
             }
             res = supabase.table('utenti').insert(nuovo_utente).execute()
             if res.data:
                 session['id_utente'] = res.data[0]['id_utente']
                 session['ha_pagato'] = False
         else:
-            # Se esiste già, recuperiamo i suoi dati di sessione e il piano
-            session['id_utente'] = utente_db.data[0]['id_utente']
-            piano = utente_db.data[0].get('piano_abbonamento', 'Free')
+            # UTENTE ESISTENTE: Recuperiamo i dati reali dal DB
+            utente_reale = utente_db.data[0]
+            session['id_utente'] = utente_reale['id_utente']
             
-            if piano in ['Executive (Pro)', 'Elite', 'Starter']:
-                session['ha_pagato'] = True
+            # --- LOGICA INTELLIGENTE DA 10 E LODE ALLINEATA ALLA ROTTA EMAIL ---
+            piano = utente_reale.get('piano_abbonamento')
+            
+            if piano and piano not in ['gratuito', 'Nessuno'] and utente_reale.get('scadenza_abbonamento'):
+                scadenza = datetime.fromisoformat(utente_reale['scadenza_abbonamento'])
+                # Risolviamo il bug del fuso orario anche qui!
+                if scadenza.replace(tzinfo=None) > datetime.now():
+                    session['ha_pagato'] = True
+                else:
+                    session['ha_pagato'] = False
             else:
                 session['ha_pagato'] = False
+            # -----------------------------------------------------------------
 
         # Autentichiamo l'utente nella sessione di Flask
         session['utente_loggato'] = nome_utente
         
+        # Reindirizzamento dinamico e intelligente
         if session.get('ha_pagato'):
             return redirect(url_for('dashboard'))
         return redirect(url_for('checkout'))
