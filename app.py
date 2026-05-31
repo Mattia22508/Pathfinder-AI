@@ -119,15 +119,15 @@ def google_callback():
         user_info = resp.json()
         
         email = user_info.get('email')
-        username = user_info.get('name', email.split('@')[0])
+        nome_utente = user_info.get('name', email.split('@')[0])
         
-        # 10 E LODE: Verifichiamo se l'utente esiste già nel database Supabase
+        # Verifichiamo se l'utente esiste già nel database Supabase
         utente_db = supabase.table('utenti').select('*').eq('email', email).execute()
         
         if not utente_db.data:
-            # Se è un nuovo utente, lo registriamo all'istante su Supabase
+            # Se è un nuovo utente, lo registriamo usando 'nome_completo' al posto di 'username'
             nuovo_utente = {
-                'username': username,
+                'nome_completo': nome_utente,
                 'email': email,
                 'piano_abbonamento': 'Free'
             }
@@ -140,16 +140,14 @@ def google_callback():
             session['id_utente'] = utente_db.data[0]['id_utente']
             piano = utente_db.data[0].get('piano_abbonamento', 'Free')
             
-            # Se ha un piano attivo, sblocchiamo la dashboard, altrimenti va al checkout
             if piano in ['Executive (Pro)', 'Elite', 'Starter']:
                 session['ha_pagato'] = True
             else:
                 session['ha_pagato'] = False
 
         # Autentichiamo l'utente nella sessione di Flask
-        session['utente_loggato'] = username
+        session['utente_loggato'] = nome_utente
         
-        # Reindirizzamento intelligente
         if session.get('ha_pagato'):
             return redirect(url_for('dashboard'))
         return redirect(url_for('checkout'))
@@ -171,7 +169,7 @@ def auth():
         
         if risultato.data:
             utente = risultato.data[0]
-            hash_salvato = utente.get('password', utente.get('password_hash'))
+            hash_salvato = utente.get('password_hash', utente.get('password'))
             
             if utente.get('metodo_accesso') == 'google' and hash_salvato == 'GOOGLE_SSO_NO_PASSWORD':
                 return render_template('auth.html', error="Hai creato questo account tramite Google. Usa il pulsante 'Accedi con Google'.")
@@ -186,12 +184,13 @@ def auth():
                     password_corretta = (hash_salvato == stringa_password)
             
             if password_corretta:
-                session['utente_loggato'] = utente.get('username', utente.get('nome_completo'))
+                session['utente_loggato'] = utente.get('nome_completo', utente.get('username'))
                 session['id_utente'] = utente['id_utente']
                 
                 piano = utente.get('piano_abbonamento')
                 if piano and piano not in ['gratuito', 'Nessuno'] and utente.get('scadenza_abbonamento'):
                     scadenza = datetime.fromisoformat(utente['scadenza_abbonamento'])
+                    # Correzione chirurgica fuso orario Python vs Supabase
                     if scadenza.replace(tzinfo=None) > datetime.now():
                         session['ha_pagato'] = True
                         return redirect(url_for('dashboard'))
@@ -204,15 +203,15 @@ def auth():
             password_criptata = generate_password_hash(password)
             nome_utente = username if username else email.split('@')[0]
             
+            # 10 E LODE: Inviamo solo le colonne esistenti ed eviti il blocco PGRST204
             nuovo_record = {
-             'username': nome_utente,
-             'nome_completo': nome_utente,
-             'email': email,
-             'password_hash': password_criptata, # <--- Teniamo solo questa!
-             'metodo_accesso': 'email',
-             'piano_abbonamento': 'Nessuno',
-            'scadenza_abbonamento': None
-         }
+                'nome_completo': nome_utente,
+                'email': email,
+                'password_hash': password_criptata,
+                'metodo_accesso': 'email',
+                'piano_abbonamento': 'Nessuno',
+                'scadenza_abbonamento': None
+            }
             
             inserimento = supabase.table('utenti').insert(nuovo_record).execute()
             
@@ -427,7 +426,8 @@ def aggiorna_profilo():
     if not nuovo_username or len(nuovo_username.strip()) < 3:
         return jsonify({'error': 'Username non valido'}), 400
 
-    supabase.table('utenti').update({'username': nuovo_username}).eq('id_utente', id_utente).execute()
+    # Aggiorniamo 'nome_completo' visto che 'username' non esiste nel database
+    supabase.table('utenti').update({'nome_completo': nuovo_username}).eq('id_utente', id_utente).execute()
     session['utente_loggato'] = nuovo_username
 
     return jsonify({'success': True, 'nuovo_username': nuovo_username})
